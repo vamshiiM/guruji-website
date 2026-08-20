@@ -48,8 +48,15 @@
 
 @layer base {
   * { border-color: var(--color-border); }
-  html { scroll-behavior: smooth; }
+  /* Prevent decorative, absolutely-positioned elements (rings, glows, marquees)
+     from causing horizontal page scroll on small screens. Use `overflow-x: hidden`
+     on the root: per spec the other axis computes to `auto`, so vertical scrolling
+     is preserved (unlike `clip`, which would also clip the y-axis and freeze the
+     page). Applied to <html> so it doesn't create an intermediate scroll container
+     that could break `position: sticky` descendants. */
+  html { scroll-behavior: smooth; overflow-x: hidden; }
   body {
+    max-width: 100%;
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
