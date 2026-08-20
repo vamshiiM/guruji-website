@@ -4,6 +4,7 @@ import { Reveal } from "@/components/site/Reveal";
 import { Phone, Mail, MapPin, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import toast from "react-hot-toast";
+import { api } from "@/lib/api";
 
 
 
@@ -15,10 +16,15 @@ function Contact() {
   const onSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 700));
-    setLoading(false);
-    toast.success("🙏");
-    setForm({ name: "", email: "", message: "" });
+    try {
+      await api.contact(form);
+      toast.success("🙏");
+      setForm({ name: "", email: "", message: "" });
+    } catch (err) {
+      toast.error(err?.message || "Could not send your message. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

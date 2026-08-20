@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   Languages,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import { useAuth } from "@/lib/auth";
 import { LANGUAGES } from "@/lib/i18n";
 
@@ -47,29 +48,24 @@ function AdminPage() {
   const {
     user,
     isAdmin,
+    loading,
     logout,
     allBookings,
-    setBookings,
+    updateBooking,
+    deleteBooking,
     services,
     addService,
     removeService,
   } = useAuth();
   const [tab, setTab] = useState("overview");
   const [query, setQuery] = useState("");
-  const [ready, setReady] = useState(false);
 
-  // Wait one tick so the AuthProvider can hydrate from localStorage.
+  // Role guard — wait for session hydration before deciding.
   useEffect(() => {
-    const t = setTimeout(() => setReady(true), 60);
-    return () => clearTimeout(t);
-  }, []);
-
-  // Role guard
-  useEffect(() => {
-    if (!ready) return;
+    if (loading) return;
     if (!user) navigate("/login");
     else if (!isAdmin) navigate("/");
-  }, [ready, user, isAdmin, navigate]);
+  }, [loading, user, isAdmin, navigate]);
 
   const stats = useMemo(
     () => computeStats(allBookings, services),
@@ -87,12 +83,18 @@ function AdminPage() {
     [allBookings, query]
   );
 
-  if (!ready || !user || !isAdmin) return <Gate user={user} isAdmin={isAdmin} />;
+  if (loading || !user || !isAdmin) return <Gate user={user} isAdmin={isAdmin} />;
 
-  const updateStatus = (id, status) =>
-    setBookings(allBookings.map((b) => (b.id === id ? { ...b, status } : b)));
-  const removeBooking = (id) =>
-    setBookings(allBookings.filter((b) => b.id !== id));
+  const updateStatus = (id, status) => {
+    updateBooking(id, status).catch((e) =>
+      toast.error(e?.message || "Could not update booking.")
+    );
+  };
+  const removeBooking = (id) => {
+    deleteBooking(id).catch((e) =>
+      toast.error(e?.message || "Could not delete booking.")
+    );
+  };
 
 
   const handleLogout = () => {
@@ -757,14 +759,18 @@ function ServicesList({ services, onAdd, onRemove }) {
   const [form, setForm] = useState({ name: "", price: "", duration: "" });
   const [err, setErr] = useState("");
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     if (!form.name.trim()) return setErr(t("admin.services.errName"));
     if (!form.price || Number(form.price) <= 0) return setErr(t("admin.services.errPrice"));
-    onAdd(form);
-    setForm({ name: "", price: "", duration: "" });
-    setErr("");
-    setOpen(false);
+    try {
+      await onAdd(form);
+      setForm({ name: "", price: "", duration: "" });
+      setErr("");
+      setOpen(false);
+    } catch (e2) {
+      setErr(e2?.message || "Could not add service.");
+    }
   };
 
   return (
@@ -897,7 +903,11 @@ function ServicesList({ services, onAdd, onRemove }) {
               </div>
               <button
                 onClick={() => {
-                  if (confirm(t("admin.services.confirmRemove", { name: s.name }))) onRemove(s.id);
+                  if (confirm(t("admin.services.confirmRemove", { name: s.name }))) {
+                    Promise.resolve(onRemove(s.id)).catch((e) =>
+                      toast.error(e?.message || "Could not remove service.")
+                    );
+                  }
                 }}
                 title={t("admin.bookings.actions.delete")}
                 style={{

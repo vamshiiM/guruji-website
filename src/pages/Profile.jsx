@@ -20,17 +20,15 @@ import {
 
 
 function Profile() {
-  const { user, bookings, logout } = useAuth();
+  const { user, bookings, logout, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user === null) {
-      const raw = typeof window !== "undefined" && localStorage.getItem("divya_user");
-      if (!raw) navigate("/login");
-    }
-  }, [user, navigate]);
+    // Once session hydration finishes, redirect signed-out visitors.
+    if (!loading && !user) navigate("/login");
+  }, [loading, user, navigate]);
 
-  if (!user) {
+  if (loading || !user) {
     return (
       <div className="mx-auto max-w-md px-6 py-32 text-center">
         <p className="text-muted-foreground">Loading your profile…</p>

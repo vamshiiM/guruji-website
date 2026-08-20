@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(USER)
+  createdAt    DateTime  @default(now())
+  bookings     Booking[]
+}
+
+model Booking {
+  id        String   @id @default(cuid())
+  // Nullable so admin-seeded sample bookings (no account) survive, and so a
+  // deleted user doesn't cascade away their booking history.
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name      String
+  email     String
+  phone     String
+  service   String
+  // Kept as a "YYYY-MM-DD" string to match the existing frontend exactly.
+  date      String
+  time      String?
+  address   String?
+  notes     String?
+  // Stored as the display string the frontend switches on:
+  // "Confirmed" | "Pending confirmation" | "Cancelled"
+  status    String   @default("Pending confirmation")
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([email])
+  @@index([status])
+}
+
+model Service {
+  id        String   @id @default(cuid())
+  name      String
+  price     Int
+  duration  String
+  createdAt DateTime @default(now())
+}
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  message   String
+  createdAt DateTime @default(now())
+}

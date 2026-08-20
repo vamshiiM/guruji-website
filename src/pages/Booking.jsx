@@ -1,30 +1,34 @@
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Reveal } from "@/components/site/Reveal";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/lib/auth";
 import { CalendarCheck, ArrowRight } from "lucide-react";
 
 
 
-const services = ["Griha Pravesh", "Satyanarayan Katha", "Vedic Wedding", "Namkaran Sanskar", "Maha Mrityunjaya Jaap", "Navagraha Shanti", "Lakshmi Puja", "Surya Namaskar Yagna", "Pitra Tarpan"];
-
 function Booking() {
-  const { user, addBooking } = useAuth();
+  const { user, addBooking, services } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [form, setForm] = useState({
-    service: services[0],
+    service: "",
     date: "",
     time: "",
     address: "",
     notes: "",
     name: user?.name ?? "",
     phone: "",
-    email: user?.email ?? "",
   });
   const [loading, setLoading] = useState(false);
+
+  // Default the service to the first one once services have loaded.
+  useEffect(() => {
+    if (!form.service && services.length) {
+      setForm((f) => ({ ...f, service: services[0].name }));
+    }
+  }, [services, form.service]);
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -34,20 +38,24 @@ function Booking() {
       return;
     }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    addBooking({
-      service: form.service,
-      date: form.date,
-      time: form.time,
-      address: form.address,
-      notes: form.notes,
-      name: form.name,
-      phone: form.phone,
-    });
-    setLoading(false);
-    toast.success("Booking received — view it in your profile 🙏");
-    setForm({ ...form, date: "", time: "", address: "", notes: "", phone: "" });
-    navigate("/profile");
+    try {
+      await addBooking({
+        service: form.service,
+        date: form.date,
+        time: form.time,
+        address: form.address,
+        notes: form.notes,
+        name: form.name,
+        phone: form.phone,
+      });
+      toast.success("Booking received — view it in your profile 🙏");
+      setForm({ ...form, date: "", time: "", address: "", notes: "", phone: "" });
+      navigate("/profile");
+    } catch (err) {
+      toast.error(err?.message || "Could not submit booking. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -64,7 +72,7 @@ function Booking() {
         <form onSubmit={onSubmit} className="glass-card mt-12 p-8 md:p-10 grid md:grid-cols-2 gap-5">
           <Field label={t("booking.fields.service")}>
             <select value={form.service} onChange={set("service")} className={inputCls}>
-              {services.map((s) => <option key={s}>{s}</option>)}
+              {services.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
             </select>
           </Field>
           <Field label={t("booking.fields.date")}>
