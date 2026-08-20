@@ -17,6 +17,7 @@ import {
   Plus,
   ShieldAlert,
   Languages,
+  Menu,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/lib/auth";
@@ -43,6 +44,21 @@ const fontStack =
   '"Söhne", "Inter", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif';
 const serif = '"Cormorant Garamond", "Times New Roman", serif';
 
+// Admin uses inline styles (no Tailwind), so responsiveness is driven by this
+// JS breakpoint hook rather than CSS media queries.
+function useIsMobile(breakpoint = 860) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" ? window.innerWidth < breakpoint : false
+  );
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < breakpoint);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 function AdminPage() {
   const navigate = useNavigate();
   const {
@@ -59,6 +75,8 @@ function AdminPage() {
   } = useAuth();
   const [tab, setTab] = useState("overview");
   const [query, setQuery] = useState("");
+  const isMobile = useIsMobile();
+  const [navOpen, setNavOpen] = useState(false);
 
   // Role guard — wait for session hydration before deciding.
   useEffect(() => {
@@ -113,11 +131,29 @@ function AdminPage() {
         lineHeight: 1.5,
         letterSpacing: "-0.005em",
         display: "grid",
-        gridTemplateColumns: "232px 1fr",
+        gridTemplateColumns: isMobile ? "1fr" : "232px 1fr",
       }}
     >
-      <Sidebar tab={tab} setTab={setTab} logout={handleLogout} user={user} />
-      <main style={{ padding: "40px 48px 80px", maxWidth: 1280, width: "100%" }}>
+      {isMobile ? (
+        <MobileTopNav
+          tab={tab}
+          setTab={setTab}
+          logout={handleLogout}
+          user={user}
+          open={navOpen}
+          setOpen={setNavOpen}
+        />
+      ) : (
+        <Sidebar tab={tab} setTab={setTab} logout={handleLogout} user={user} />
+      )}
+      <main
+        style={{
+          padding: isMobile ? "20px 16px 64px" : "40px 48px 80px",
+          maxWidth: 1280,
+          width: "100%",
+          minWidth: 0,
+        }}
+      >
         <TopBar tab={tab} />
         {tab === "overview" && <Overview stats={stats} bookings={allBookings} />}
         {tab === "bookings" && (
@@ -392,9 +428,194 @@ function Sidebar({ tab, setTab, logout, user }) {
   );
 }
 
+/* ---------------- Mobile top nav + drawer ---------------- */
+function MobileTopNav({ tab, setTab, logout, user, open, setOpen }) {
+  const { t } = useTranslation();
+  const items = [
+    { id: "overview", label: t("admin.nav.overview"), icon: LayoutGrid },
+    { id: "bookings", label: t("admin.nav.bookings"), icon: CalendarDays },
+    { id: "users", label: t("admin.nav.users"), icon: Users },
+    { id: "services", label: t("admin.nav.services"), icon: Package },
+  ];
+  const go = (id) => {
+    setTab(id);
+    setOpen(false);
+  };
+  return (
+    <header
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 30,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "12px 16px",
+        background: T.bg,
+        borderBottom: `1px solid ${T.line}`,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+        <span style={{ fontFamily: serif, fontSize: 20, fontWeight: 500, lineHeight: 1 }}>
+          Divya<span style={{ color: T.muted }}>.</span>
+        </span>
+        <span style={{ fontSize: 10, color: T.muted, letterSpacing: "0.12em" }}>
+          {t("admin.brand")}
+        </span>
+      </div>
+      <button
+        onClick={() => setOpen(true)}
+        aria-label="Menu"
+        style={{
+          border: `1px solid ${T.line}`,
+          background: T.surface,
+          cursor: "pointer",
+          width: 38,
+          height: 38,
+          display: "grid",
+          placeItems: "center",
+          color: T.ink,
+          borderRadius: 3,
+        }}
+      >
+        <Menu size={18} strokeWidth={1.6} />
+      </button>
+
+      {open && (
+        <>
+          <div
+            onClick={() => setOpen(false)}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 40 }}
+          />
+          <motion.div
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            transition={{ type: "tween", duration: 0.22, ease: "easeOut" }}
+            style={{
+              position: "fixed",
+              top: 0,
+              right: 0,
+              bottom: 0,
+              width: 260,
+              maxWidth: "82vw",
+              zIndex: 50,
+              background: T.bg,
+              borderLeft: `1px solid ${T.line}`,
+              display: "flex",
+              flexDirection: "column",
+              padding: "16px 14px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "4px 6px 16px",
+              }}
+            >
+              <span style={{ fontFamily: serif, fontSize: 18, fontWeight: 500 }}>
+                Divya<span style={{ color: T.muted }}>.</span>
+              </span>
+              <button
+                onClick={() => setOpen(false)}
+                aria-label="Close"
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  cursor: "pointer",
+                  color: T.ink2,
+                  display: "grid",
+                  placeItems: "center",
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {items.map((item) => {
+                const Icon = item.icon;
+                const active = tab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => go(item.id)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "11px 12px",
+                      borderRadius: 3,
+                      border: "none",
+                      cursor: "pointer",
+                      background: active ? T.lineSoft : "transparent",
+                      color: active ? T.ink : T.ink2,
+                      fontFamily: fontStack,
+                      fontSize: 14,
+                      fontWeight: active ? 500 : 400,
+                      textAlign: "left",
+                    }}
+                  >
+                    <Icon size={16} strokeWidth={1.6} />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </nav>
+
+            <div style={{ marginTop: "auto" }}>
+              <AdminLangPicker />
+              <div
+                style={{
+                  padding: "12px 10px",
+                  borderTop: `1px solid ${T.line}`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 500 }}>{user?.name || "Admin"}</div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: T.muted,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {user?.email}
+                  </div>
+                </div>
+                <button
+                  onClick={logout}
+                  title={t("admin.signOut")}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    cursor: "pointer",
+                    color: T.muted,
+                    padding: 6,
+                    display: "grid",
+                    placeItems: "center",
+                  }}
+                >
+                  <LogOut size={14} strokeWidth={1.6} />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </header>
+  );
+}
+
 /* ---------------- Top bar ---------------- */
 function TopBar({ tab }) {
   const { t, i18n } = useTranslation();
+  const isMobile = useIsMobile();
   const titles = {
     overview: t("admin.nav.overview"),
     bookings: t("admin.nav.bookings"),
@@ -413,8 +634,8 @@ function TopBar({ tab }) {
         display: "flex",
         alignItems: "flex-end",
         justifyContent: "space-between",
-        paddingBottom: 24,
-        marginBottom: 32,
+        paddingBottom: isMobile ? 16 : 24,
+        marginBottom: isMobile ? 24 : 32,
         borderBottom: `1px solid ${T.line}`,
       }}
     >
@@ -422,7 +643,7 @@ function TopBar({ tab }) {
         <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.1em", marginBottom: 6 }}>
           {today.toUpperCase()}
         </div>
-        <h1 style={{ fontFamily: serif, fontSize: 36, fontWeight: 500, margin: 0, letterSpacing: "-0.01em" }}>
+        <h1 style={{ fontFamily: serif, fontSize: isMobile ? 26 : 36, fontWeight: 500, margin: 0, letterSpacing: "-0.01em" }}>
           {titles[tab]}
         </h1>
       </div>
@@ -434,17 +655,18 @@ function TopBar({ tab }) {
 /* ---------------- Overview ---------------- */
 function Overview({ stats, bookings }) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const recent = bookings.slice(0, 6);
   return (
     <div>
       <section
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
+          gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
           gap: 0,
           border: `1px solid ${T.line}`,
           background: T.surface,
-          marginBottom: 40,
+          marginBottom: isMobile ? 28 : 40,
         }}
       >
         <Metric label={t("admin.metrics.total")} value={stats.total} delta="+12%" up />
@@ -453,7 +675,7 @@ function Overview({ stats, bookings }) {
         <Metric label={t("admin.metrics.revenue")} value={`₹${(stats.revenue / 1000).toFixed(1)}k`} delta="-2%" />
       </section>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 32 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.4fr 1fr", gap: isMobile ? 20 : 32 }}>
         <Block title={t("admin.overview.recent")} caption={t("admin.overview.recentCaption", { n: recent.length })}>
           {recent.length === 0 ? (
             <Empty text={t("admin.overview.emptyBookings")} />
@@ -553,6 +775,7 @@ function Bar({ label, value, total }) {
 /* ---------------- Bookings ---------------- */
 function Bookings({ bookings, total, query, setQuery, updateStatus, removeBooking }) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const headers = [
     t("admin.bookings.cols.devotee"),
     t("admin.bookings.cols.service"),
@@ -565,8 +788,10 @@ function Bookings({ bookings, total, query, setQuery, updateStatus, removeBookin
       <div
         style={{
           display: "flex",
-          alignItems: "center",
+          flexDirection: isMobile ? "column" : "row",
+          alignItems: isMobile ? "stretch" : "center",
           justifyContent: "space-between",
+          gap: isMobile ? 10 : 0,
           marginBottom: 18,
         }}
       >
@@ -581,7 +806,7 @@ function Bookings({ bookings, total, query, setQuery, updateStatus, removeBookin
             border: `1px solid ${T.line}`,
             background: T.surface,
             padding: "8px 12px",
-            width: 300,
+            width: isMobile ? "100%" : 300,
           }}
         >
           <Search size={14} strokeWidth={1.6} color={T.muted} />
@@ -755,6 +980,7 @@ function UsersList({ bookings }) {
 /* ---------------- Services ---------------- */
 function ServicesList({ services, onAdd, onRemove }) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", price: "", duration: "" });
   const [err, setErr] = useState("");
@@ -820,7 +1046,7 @@ function ServicesList({ services, onAdd, onRemove }) {
             padding: 20,
             marginBottom: 20,
             display: "grid",
-            gridTemplateColumns: "2fr 1fr 1fr auto",
+            gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr 1fr auto",
             gap: 12,
             alignItems: "end",
           }}
@@ -877,7 +1103,7 @@ function ServicesList({ services, onAdd, onRemove }) {
         </motion.form>
       )}
 
-      <div style={{ background: T.surface, border: `1px solid ${T.line}` }}>
+      <div style={{ background: T.surface, border: `1px solid ${T.line}`, overflowX: isMobile ? "auto" : "visible" }}>
         {services.length === 0 ? (
           <Empty text={t("admin.services.empty")} />
         ) : (
@@ -887,9 +1113,10 @@ function ServicesList({ services, onAdd, onRemove }) {
               style={{
                 display: "grid",
                 gridTemplateColumns: "30px 1fr 110px 130px 32px",
+                minWidth: isMobile ? 460 : "auto",
                 alignItems: "center",
                 gap: 20,
-                padding: "20px 24px",
+                padding: isMobile ? "18px 18px" : "20px 24px",
                 borderTop: i === 0 ? "none" : `1px solid ${T.lineSoft}`,
               }}
             >
