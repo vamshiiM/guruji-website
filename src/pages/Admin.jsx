@@ -605,8 +605,8 @@ function Bookings({ bookings, total, query, setQuery, updateStatus, removeBookin
       {bookings.length === 0 ? (
         <Block><Empty text={t("admin.bookings.empty")} /></Block>
       ) : (
-        <div style={{ background: T.surface, border: `1px solid ${T.line}` }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <div style={{ background: T.surface, border: `1px solid ${T.line}`, overflowX: "auto" }}>
+          <table style={{ width: "100%", minWidth: 560, borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>
                 {headers.map((h, idx) => (

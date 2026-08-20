@@ -424,7 +424,7 @@ function Home() {
       </section>
 
       {/* CTA */}
-      <section className="mx-auto max-w-5xl px-6 py-24 text-center relative">
+      <section className="mx-auto max-w-5xl px-6 py-24 text-center relative overflow-hidden">
         <div
           aria-hidden
           className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[520px] w-[520px] -z-10"
