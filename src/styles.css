@@ -1,11 +1,12 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
 
-/* Premium divine palette: ivory, deep saffron/gold, charcoal */
-@theme inline {
+/* Premium divine palette: ivory, deep saffron/gold, charcoal.
+   Non-inline @theme so these tokens are emitted as real :root CSS variables,
+   which the base `body`/`*` rules read directly and which the html.dark /
+   html.sepia overrides below re-resolve. */
+@theme {
   --font-display: "Cormorant Garamond", "Cormorant", serif;
   --font-sans: "Inter", system-ui, sans-serif;
 
