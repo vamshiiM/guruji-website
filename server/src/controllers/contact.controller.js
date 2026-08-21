@@ -1,6 +1,15 @@
 import { prisma } from "../db.js";
 import { AppError, asyncHandler } from "../lib/errors.js";
 import { sendContactNotification } from "../lib/email.js";
+import { serializeContactMessage } from "../lib/serializers.js";
+
+// Admin only: list all submitted contact messages, newest first.
+export const listContactMessages = asyncHandler(async (_req, res) => {
+  const messages = await prisma.contactMessage.findMany({
+    orderBy: { createdAt: "desc" },
+  });
+  res.json({ messages: messages.map(serializeContactMessage) });
+});
 
 export const createContact = asyncHandler(async (req, res) => {
   const { name, email, message } = req.body || {};

@@ -15,10 +15,43 @@ export const listBookings = asyncHandler(async (req, res) => {
   res.json({ bookings: bookings.map(serializeBooking) });
 });
 
+const pad2 = (n) => String(n).padStart(2, "0");
+// Now in the server's local time. Lexicographic comparison of two "YYYY-MM-DD"
+// (or two "HH:MM") strings is equivalent to chronological order.
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+function nowHM() {
+  const d = new Date();
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
 export const createBooking = asyncHandler(async (req, res) => {
   const { service, date, time, address, notes, name, phone } = req.body || {};
   if (!service?.trim() || !date?.trim() || !name?.trim() || !phone?.trim()) {
     throw new AppError("VALIDATION", "Service, date, name and phone are required.", 400);
+  }
+
+  // Phone must contain at least 7 digits (letters/garbage rejected).
+  const cleanPhone = phone.trim();
+  if ((cleanPhone.match(/\d/g) || []).length < 7) {
+    throw new AppError("VALIDATION", "Enter a valid phone number.", 400);
+  }
+
+  const cleanDate = date.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) {
+    throw new AppError("VALIDATION", "Enter a valid date (YYYY-MM-DD).", 400);
+  }
+  // Allow today; reject anything strictly before it (lenient across time zones).
+  if (cleanDate < todayStr()) {
+    throw new AppError("VALIDATION", "The ceremony date cannot be in the past.", 400);
+  }
+
+  const cleanTime = time?.trim() || null;
+  // On same-day bookings, the time must not already be in the past.
+  if (cleanTime && /^\d{2}:\d{2}$/.test(cleanTime) && cleanDate === todayStr() && cleanTime < nowHM()) {
+    throw new AppError("VALIDATION", "The ceremony time cannot be in the past.", 400);
   }
 
   const booking = await prisma.booking.create({
@@ -26,10 +59,10 @@ export const createBooking = asyncHandler(async (req, res) => {
       userId: req.user.id,
       email: req.user.email, // scope to the signed-in user, like the old addBooking
       name: name.trim(),
-      phone: phone.trim(),
+      phone: cleanPhone,
       service: service.trim(),
-      date: date.trim(),
-      time: time?.trim() || null,
+      date: cleanDate,
+      time: cleanTime,
       address: address?.trim() || null,
       notes: notes?.trim() || null,
       status: "Pending confirmation",

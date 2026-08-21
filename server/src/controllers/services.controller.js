@@ -9,7 +9,7 @@ export const listServices = asyncHandler(async (_req, res) => {
 });
 
 export const addService = asyncHandler(async (req, res) => {
-  const { name, price, duration } = req.body || {};
+  const { name, price, duration, description, icon } = req.body || {};
   if (!name?.trim()) throw new AppError("VALIDATION", "Service name is required.", 400);
 
   const priceNum = Number(price);
@@ -22,6 +22,9 @@ export const addService = asyncHandler(async (req, res) => {
       name: name.trim(),
       price: Math.round(priceNum),
       duration: (duration || "").trim() || "1 hr",
+      // Optional; default to "" so the public catalog never renders undefined.
+      description: (description || "").trim(),
+      icon: (icon || "").trim(),
     },
   });
   res.status(201).json({ service: serializeService(service) });

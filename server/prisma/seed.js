@@ -5,12 +5,14 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 // Mirrors DEFAULT_SERVICES from the old src/lib/auth.jsx so the site looks identical.
+// `icon` is a string key resolved to a lucide icon on the client
+// (see src/lib/serviceIcons.js — keep the keys in sync with SERVICE_ICONS).
 const DEFAULT_SERVICES = [
-  { name: "Vedic Wedding", price: 51000, duration: "4–6 hrs" },
-  { name: "Satyanarayan Katha", price: 11000, duration: "2 hrs" },
-  { name: "Griha Pravesh", price: 21000, duration: "3 hrs" },
-  { name: "Navagraha Puja", price: 15000, duration: "2 hrs" },
-  { name: "Rudra Abhishek", price: 9000, duration: "1.5 hrs" },
+  { name: "Vedic Wedding", price: 51000, duration: "4–6 hrs", icon: "Heart", description: "Complete saat-phera ceremony performed per regional Vedic tradition." },
+  { name: "Satyanarayan Katha", price: 11000, duration: "2 hrs", icon: "Flame", description: "Monthly puja and katha honoring Lord Vishnu, with full vidhi." },
+  { name: "Griha Pravesh", price: 21000, duration: "3 hrs", icon: "Home", description: "Housewarming ritual to consecrate and bless a new home." },
+  { name: "Navagraha Puja", price: 15000, duration: "2 hrs", icon: "Star", description: "Planetary-peace ritual to harmonize the nine grahas." },
+  { name: "Rudra Abhishek", price: 9000, duration: "1.5 hrs", icon: "Sparkles", description: "Sacred abhishekam to Lord Shiva for health and clarity." },
 ];
 
 const daysAgo = (n) => {

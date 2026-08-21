@@ -48,11 +48,15 @@ model Booking {
 }
 
 model Service {
-  id        String   @id @default(cuid())
-  name      String
-  price     Int
-  duration  String
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  name        String
+  price       Int
+  duration    String
+  // Shown on the public Services page / Home preview (DB is the single source).
+  description String   @default("")
+  // String key resolved to a lucide icon on the client (see src/lib/serviceIcons.js).
+  icon        String   @default("")
+  createdAt   DateTime @default(now())
 }
 
 model ContactMessage {

@@ -27,4 +27,28 @@ export const serializeService = (s) => ({
   name: s.name,
   price: s.price,
   duration: s.duration,
+  // Backfill to "" so the client never has to null-check (matches the DB default).
+  description: s.description ?? "",
+  icon: s.icon ?? "",
+});
+
+export const serializeContactMessage = (m) => ({
+  id: m.id,
+  name: m.name,
+  email: m.email,
+  message: m.message,
+  createdAt: m.createdAt.toISOString(),
+});
+
+// Admin-only view of a registered account. Kept separate from serializeUser so
+// the public me/login/signup contract ({name,email,role,joinedAt}) stays stable.
+export const serializeUserAdmin = (u) => ({
+  id: u.id,
+  name: u.name,
+  email: u.email,
+  role: u.role.toLowerCase(), // "USER"/"ADMIN" -> "user"/"admin"
+  joinedAt: u.createdAt.toISOString(),
+  bookingsCount: u._count?.bookings ?? 0,
+  // From the most recent booking (see users.controller.js); "" if none.
+  phone: u.bookings?.[0]?.phone ?? "",
 });
