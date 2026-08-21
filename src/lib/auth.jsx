@@ -85,8 +85,8 @@ export function AuthProvider({ children }) {
   };
 
   // Services -----------------------------------------------------------------
-  const addService = async ({ name, price, duration }) => {
-    const { service } = await api.addService({ name, price, duration });
+  const addService = async ({ name, price, duration, description, icon }) => {
+    const { service } = await api.addService({ name, price, duration, description, icon });
     setServices((prev) => [...prev, service]);
     return service;
   };

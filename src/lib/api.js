@@ -46,4 +46,8 @@ export const api = {
 
   // contact
   contact: (message) => request("/api/contact", { method: "POST", body: message }),
+  listContactMessages: () => request("/api/contact"), // admin
+
+  // users (admin)
+  listUsers: () => request("/api/users"),
 };

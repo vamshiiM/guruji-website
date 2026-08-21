@@ -15,12 +15,13 @@ import {
   CalendarCheck,
   ArrowRight,
   Flame,
+  LayoutDashboard,
 } from "lucide-react";
 
 
 
 function Profile() {
-  const { user, bookings, logout, loading } = useAuth();
+  const { user, bookings, logout, loading, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -65,6 +66,11 @@ function Profile() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {isAdmin && (
+              <Link to="/admin" className="btn-ghost text-sm !py-2.5 !px-5">
+                <LayoutDashboard size={16} /> Dashboard
+              </Link>
+            )}
             <Link to="/booking" className="btn-primary text-sm !py-2.5 !px-5">
               <CalendarCheck size={16} /> New booking
             </Link>

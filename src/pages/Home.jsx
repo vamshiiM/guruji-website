@@ -7,6 +7,8 @@ import pujaImg from "@/assets/puja-hands.jpg";
 import bellImg from "@/assets/temple-bell.jpg";
 import templeInteriorImg from "@/assets/temple-interior.jpg";
 import { Reveal } from "@/components/site/Reveal";
+import { useAuth } from "@/lib/auth";
+import { iconFor } from "@/lib/serviceIcons";
 
 
 
@@ -20,6 +22,9 @@ const shlokas = [
 
 function Home() {
   const { t } = useTranslation();
+  const { services } = useAuth();
+  // First three DB services power the homepage preview (single source of truth).
+  const preview = services.slice(0, 3);
   const heroRef = useRef(null);
   const { scrollY } = useScroll();
   const y1 = useTransform(scrollY, [0, 800], [0, 160]);
@@ -278,21 +283,24 @@ function Home() {
           </div>
         </Reveal>
         <div className="mt-12 grid md:grid-cols-3 gap-6">
-          {servicesPreview.map((s, i) => (
-            <Reveal key={s.title} delay={i * 0.1}>
-              <motion.div whileHover={{ y: -6 }} className="glass-card p-7 h-full group relative overflow-hidden">
-                <div className="absolute -top-12 -right-12 h-32 w-32 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-2xl"
-                  style={{ background: "radial-gradient(circle, var(--gold), transparent 70%)" }} />
-                <div className="inline-flex h-11 w-11 items-center justify-center rounded-full"
-                  style={{ background: "linear-gradient(135deg, var(--saffron), var(--gold))" }}>
-                  <s.icon size={20} className="text-white" />
-                </div>
-                <h3 className="mt-5 font-display text-2xl">{s.title}</h3>
-                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
-                <p className="mt-5 text-xs uppercase tracking-widest" style={{ color: "var(--saffron)" }}>From ₹{s.price}</p>
-              </motion.div>
-            </Reveal>
-          ))}
+          {preview.map((s, i) => {
+            const Icon = iconFor(s.icon);
+            return (
+              <Reveal key={s.id} delay={i * 0.1}>
+                <motion.div whileHover={{ y: -6 }} className="glass-card p-7 h-full group relative overflow-hidden">
+                  <div className="absolute -top-12 -right-12 h-32 w-32 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-2xl"
+                    style={{ background: "radial-gradient(circle, var(--gold), transparent 70%)" }} />
+                  <div className="inline-flex h-11 w-11 items-center justify-center rounded-full"
+                    style={{ background: "linear-gradient(135deg, var(--saffron), var(--gold))" }}>
+                    <Icon size={20} className="text-white" />
+                  </div>
+                  <h3 className="mt-5 font-display text-2xl">{s.name}</h3>
+                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{s.description}</p>
+                  <p className="mt-5 text-xs uppercase tracking-widest" style={{ color: "var(--saffron)" }}>From ₹{Number(s.price).toLocaleString("en-IN")}</p>
+                </motion.div>
+              </Reveal>
+            );
+          })}
         </div>
       </section>
 
@@ -597,12 +605,6 @@ function Wisp({ x, y, color, duration, delay }) {
     />
   );
 }
-
-const servicesPreview = [
-  { title: "Griha Pravesh", desc: "Sacred housewarming ritual to invoke prosperity and protection over a new home.", price: "5,100", icon: Flame },
-  { title: "Satyanarayan Katha", desc: "Monthly puja and recitation honoring Lord Vishnu, performed with full vidhi.", price: "3,100", icon: Sparkles },
-  { title: "Vedic Wedding", desc: "Complete sapt-padi and saat-pheras ceremony as per regional Vedic traditions.", price: "21,000", icon: Star },
-];
 
 const journey = [
   { title: "Sankalpa — The Intention", desc: "We begin by understanding your occasion, family tradition, and the blessings you seek.", icon: HandHeart },

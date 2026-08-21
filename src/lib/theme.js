@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 
 const THEME_KEY = "divya-seva-theme";
-const THEMES = ["light", "dark", "sepia"];
+const THEMES = ["white", "dark"];
 
 export function getInitialTheme() {
-    if (typeof window === "undefined") return "light";
+    if (typeof window === "undefined") return "white";
     const stored = localStorage.getItem(THEME_KEY);
     if (stored && THEMES.includes(stored)) return stored;
-    return "light";
+    return "white";
 }
 
 export function useTheme() {
@@ -15,9 +15,10 @@ export function useTheme() {
 
     useEffect(() => {
         const root = document.documentElement;
-        root.classList.remove("dark", "sepia");
+        // "white" is the base :root theme (no class); only "dark" adds a class.
+        // Legacy classes are cleared so stale values never linger.
+        root.classList.remove("dark", "sepia", "white");
         if (theme === "dark") root.classList.add("dark");
-        else if (theme === "sepia") root.classList.add("sepia");
         localStorage.setItem(THEME_KEY, theme);
     }, [theme]);
 

@@ -18,10 +18,14 @@ import {
   ShieldAlert,
   Languages,
   Menu,
+  MessageSquare,
+  ArrowLeft,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/lib/auth";
+import { api } from "@/lib/api";
 import { LANGUAGES } from "@/lib/i18n";
+import { SERVICE_ICON_NAMES } from "@/lib/serviceIcons";
 
 
 
@@ -77,6 +81,10 @@ function AdminPage() {
   const [query, setQuery] = useState("");
   const isMobile = useIsMobile();
   const [navOpen, setNavOpen] = useState(false);
+  // Admin-only data (contact messages + real registered users). Fetched here
+  // rather than in AuthProvider so non-admin visitors never hit these 403 routes.
+  const [messages, setMessages] = useState([]);
+  const [users, setUsers] = useState([]);
 
   // Role guard — wait for session hydration before deciding.
   useEffect(() => {
@@ -84,6 +92,28 @@ function AdminPage() {
     if (!user) navigate("/login");
     else if (!isAdmin) navigate("/");
   }, [loading, user, isAdmin, navigate]);
+
+  // Load admin-only data once the session is hydrated and confirmed admin.
+  useEffect(() => {
+    if (loading || !isAdmin) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [msgRes, userRes] = await Promise.all([
+          api.listContactMessages(),
+          api.listUsers(),
+        ]);
+        if (cancelled) return;
+        setMessages(msgRes.messages ?? []);
+        setUsers(userRes.users ?? []);
+      } catch (e) {
+        if (!cancelled) toast.error(e?.message || "Could not load admin data.");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, isAdmin]);
 
   const stats = useMemo(
     () => computeStats(allBookings, services),
@@ -166,7 +196,8 @@ function AdminPage() {
             removeBooking={removeBooking}
           />
         )}
-        {tab === "users" && <UsersList bookings={allBookings} />}
+        {tab === "users" && <UsersList users={users} />}
+        {tab === "messages" && <MessagesList messages={messages} />}
         {tab === "services" && (
           <ServicesList
             services={services}
@@ -326,6 +357,33 @@ function AdminLangPicker() {
   );
 }
 
+/* Leaves the admin area and returns to the public website. */
+function BackToSite() {
+  const { t } = useTranslation();
+  return (
+    <Link
+      to="/"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "8px 10px",
+        borderRadius: 3,
+        marginBottom: 4,
+        textDecoration: "none",
+        color: T.ink2,
+        fontFamily: fontStack,
+        fontSize: 13,
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = T.lineSoft)}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+    >
+      <ArrowLeft size={15} strokeWidth={1.6} />
+      {t("admin.backToSite")}
+    </Link>
+  );
+}
+
 /* ---------------- Sidebar ---------------- */
 function Sidebar({ tab, setTab, logout, user }) {
   const { t } = useTranslation();
@@ -333,6 +391,7 @@ function Sidebar({ tab, setTab, logout, user }) {
     { id: "overview", label: t("admin.nav.overview"), icon: LayoutGrid },
     { id: "bookings", label: t("admin.nav.bookings"), icon: CalendarDays },
     { id: "users", label: t("admin.nav.users"), icon: Users },
+    { id: "messages", label: t("admin.nav.messages"), icon: MessageSquare },
     { id: "services", label: t("admin.nav.services"), icon: Package },
   ];
   return (
@@ -391,6 +450,7 @@ function Sidebar({ tab, setTab, logout, user }) {
       </nav>
 
       <div style={{ marginTop: "auto" }}>
+        <BackToSite />
         <AdminLangPicker />
         <div
           style={{
@@ -435,6 +495,7 @@ function MobileTopNav({ tab, setTab, logout, user, open, setOpen }) {
     { id: "overview", label: t("admin.nav.overview"), icon: LayoutGrid },
     { id: "bookings", label: t("admin.nav.bookings"), icon: CalendarDays },
     { id: "users", label: t("admin.nav.users"), icon: Users },
+    { id: "messages", label: t("admin.nav.messages"), icon: MessageSquare },
     { id: "services", label: t("admin.nav.services"), icon: Package },
   ];
   const go = (id) => {
@@ -565,6 +626,7 @@ function MobileTopNav({ tab, setTab, logout, user, open, setOpen }) {
             </nav>
 
             <div style={{ marginTop: "auto" }}>
+              <BackToSite />
               <AdminLangPicker />
               <div
                 style={{
@@ -620,9 +682,10 @@ function TopBar({ tab }) {
     overview: t("admin.nav.overview"),
     bookings: t("admin.nav.bookings"),
     users: t("admin.nav.users"),
+    messages: t("admin.nav.messages"),
     services: t("admin.nav.services"),
   };
-  const localeMap = { en: "en-US", hi: "hi-IN", ta: "ta-IN", mr: "mr-IN" };
+  const localeMap = { en: "en-US", hi: "hi-IN", mr: "mr-IN" };
   const today = new Date().toLocaleDateString(localeMap[i18n.language] || "en-US", {
     weekday: "long",
     month: "long",
@@ -778,6 +841,7 @@ function Bookings({ bookings, total, query, setQuery, updateStatus, removeBookin
   const isMobile = useIsMobile();
   const headers = [
     t("admin.bookings.cols.devotee"),
+    t("admin.bookings.cols.phone"),
     t("admin.bookings.cols.service"),
     t("admin.bookings.cols.date"),
     t("admin.bookings.cols.status"),
@@ -860,6 +924,7 @@ function Bookings({ bookings, total, query, setQuery, updateStatus, removeBookin
                     <div style={{ fontWeight: 500 }}>{b.name || "—"}</div>
                     <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{b.email}</div>
                   </td>
+                  <td style={{ ...tdStyle, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{b.phone || "—"}</td>
                   <td style={tdStyle}>{b.service || "—"}</td>
                   <td style={tdStyle}>
                     {b.date || new Date(b.createdAt).toLocaleDateString()}
@@ -911,20 +976,10 @@ function RowBtn({ children, ...rest }) {
 }
 
 /* ---------------- Users ---------------- */
-function UsersList({ bookings }) {
+// Real registered accounts from GET /api/users (serializeUserAdmin):
+// { id, name, email, role, joinedAt, bookingsCount }.
+function UsersList({ users }) {
   const { t } = useTranslation();
-  const users = useMemo(() => {
-    const map = new Map();
-    bookings.forEach((b) => {
-      if (!b.email) return;
-      const u = map.get(b.email) || { email: b.email, name: b.name, count: 0, last: b.createdAt };
-      u.count += 1;
-      u.name = u.name || b.name;
-      if (new Date(b.createdAt) > new Date(u.last)) u.last = b.createdAt;
-      map.set(b.email, u);
-    });
-    return Array.from(map.values());
-  }, [bookings]);
 
   if (users.length === 0)
     return <Block><Empty text={t("admin.users.empty")} /></Block>;
@@ -933,7 +988,7 @@ function UsersList({ bookings }) {
     <div style={{ background: T.surface, border: `1px solid ${T.line}` }}>
       {users.map((u, i) => (
         <div
-          key={u.email}
+          key={u.id}
           style={{
             display: "grid",
             gridTemplateColumns: "40px 1fr auto",
@@ -964,13 +1019,61 @@ function UsersList({ bookings }) {
               {u.name || u.email.split("@")[0]}
             </div>
             <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{u.email}</div>
+            {u.phone && (
+              <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{u.phone}</div>
+            )}
           </div>
           <div style={{ textAlign: "right", fontSize: 12, color: T.muted }}>
-            <div>{t("admin.users.bookings", { count: u.count })}</div>
+            <div>{t("admin.users.bookings", { count: u.bookingsCount })}</div>
             <div style={{ marginTop: 2 }}>
-              {t("admin.users.last")} {new Date(u.last).toLocaleDateString()}
+              {t("admin.users.joined")} {new Date(u.joinedAt).toLocaleDateString()}
             </div>
           </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ---------------- Messages ---------------- */
+// Contact-form submissions from GET /api/contact (serializeContactMessage):
+// { id, name, email, message, createdAt }.
+function MessagesList({ messages }) {
+  const { t } = useTranslation();
+
+  if (messages.length === 0)
+    return <Block><Empty text={t("admin.messages.empty")} /></Block>;
+
+  return (
+    <div style={{ background: T.surface, border: `1px solid ${T.line}` }}>
+      {messages.map((m, i) => (
+        <div
+          key={m.id}
+          style={{
+            padding: "18px 22px",
+            borderTop: i === 0 ? "none" : `1px solid ${T.lineSoft}`,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 500 }}>{m.name}</div>
+              <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{m.email}</div>
+            </div>
+            <div style={{ fontSize: 12, color: T.muted, whiteSpace: "nowrap" }}>
+              {new Date(m.createdAt).toLocaleDateString()}
+            </div>
+          </div>
+          <p style={{ margin: "10px 0 0", fontSize: 13, color: T.ink2, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+            {m.message}
+          </p>
         </div>
       ))}
     </div>
@@ -982,7 +1085,7 @@ function ServicesList({ services, onAdd, onRemove }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", price: "", duration: "" });
+  const [form, setForm] = useState({ name: "", price: "", duration: "", description: "", icon: "" });
   const [err, setErr] = useState("");
 
   const submit = async (e) => {
@@ -991,7 +1094,7 @@ function ServicesList({ services, onAdd, onRemove }) {
     if (!form.price || Number(form.price) <= 0) return setErr(t("admin.services.errPrice"));
     try {
       await onAdd(form);
-      setForm({ name: "", price: "", duration: "" });
+      setForm({ name: "", price: "", duration: "", description: "", icon: "" });
       setErr("");
       setOpen(false);
     } catch (e2) {
@@ -1046,7 +1149,7 @@ function ServicesList({ services, onAdd, onRemove }) {
             padding: 20,
             marginBottom: 20,
             display: "grid",
-            gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr 1fr auto",
+            gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr 1fr 1fr auto",
             gap: 12,
             alignItems: "end",
           }}
@@ -1078,6 +1181,18 @@ function ServicesList({ services, onAdd, onRemove }) {
               style={inputStyle}
             />
           </Field>
+          <Field label={t("admin.services.icon")}>
+            <select
+              value={form.icon}
+              onChange={(e) => setForm({ ...form, icon: e.target.value })}
+              style={inputStyle}
+            >
+              <option value="">{t("admin.services.iconDefault")}</option>
+              {SERVICE_ICON_NAMES.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          </Field>
           <button
             type="submit"
             style={{
@@ -1095,6 +1210,17 @@ function ServicesList({ services, onAdd, onRemove }) {
           >
             {t("admin.services.add")}
           </button>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <Field label={t("admin.services.description")}>
+              <textarea
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                placeholder={t("admin.services.descriptionPlaceholder")}
+                rows={2}
+                style={{ ...inputStyle, resize: "vertical", minHeight: 56 }}
+              />
+            </Field>
+          </div>
           {err && (
             <div style={{ gridColumn: "1 / -1", fontSize: 12, color: T.bad, marginTop: -4 }}>
               {err}
@@ -1123,7 +1249,14 @@ function ServicesList({ services, onAdd, onRemove }) {
               <div style={{ fontSize: 11, color: T.muted, fontVariantNumeric: "tabular-nums" }}>
                 {String(i + 1).padStart(2, "0")}
               </div>
-              <div style={{ fontFamily: serif, fontSize: 18, fontWeight: 500 }}>{s.name}</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: serif, fontSize: 18, fontWeight: 500 }}>{s.name}</div>
+                {s.description && (
+                  <div style={{ fontSize: 12, color: T.muted, marginTop: 2, fontFamily: fontStack }}>
+                    {s.description}
+                  </div>
+                )}
+              </div>
               <div style={{ fontSize: 12, color: T.muted }}>{s.duration}</div>
               <div style={{ fontSize: 14, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
                 ₹{Number(s.price).toLocaleString("en-IN")}
