@@ -4,7 +4,7 @@ import { Reveal } from "@/components/site/Reveal";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/lib/auth";
-import { Flame, ArrowRight } from "lucide-react";
+import { Flame, ArrowRight, Eye, EyeOff } from "lucide-react";
 
 
 
@@ -15,6 +15,7 @@ function LoginPage() {
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -67,7 +68,27 @@ function LoginPage() {
           </div>
           <div>
             <label className="text-xs uppercase tracking-widest text-muted-foreground">Password</label>
-            <input type="password" required minLength={6} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={inputCls} />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                minLength={6}
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                className={`${inputCls} pr-11`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
+                className="absolute right-0 bottom-0 flex items-center pr-3 text-muted-foreground hover:text-foreground transition-colors"
+                style={{ top: "0.5rem" }}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
           <button type="submit" disabled={loading} className="btn-primary w-full mt-2 disabled:opacity-60">
             {loading ? "Please wait..." : <>{mode === "login" ? "Sign in" : "Create account"} <ArrowRight size={16} /></>}

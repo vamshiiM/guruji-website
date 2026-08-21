@@ -15,22 +15,21 @@ import {
   CalendarCheck,
   ArrowRight,
   Flame,
+  LayoutDashboard,
 } from "lucide-react";
 
 
 
 function Profile() {
-  const { user, bookings, logout } = useAuth();
+  const { user, bookings, logout, loading, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user === null) {
-      const raw = typeof window !== "undefined" && localStorage.getItem("divya_user");
-      if (!raw) navigate("/login");
-    }
-  }, [user, navigate]);
+    // Once session hydration finishes, redirect signed-out visitors.
+    if (!loading && !user) navigate("/login");
+  }, [loading, user, navigate]);
 
-  if (!user) {
+  if (loading || !user) {
     return (
       <div className="mx-auto max-w-md px-6 py-32 text-center">
         <p className="text-muted-foreground">Loading your profile…</p>
@@ -67,6 +66,11 @@ function Profile() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {isAdmin && (
+              <Link to="/admin" className="btn-ghost text-sm !py-2.5 !px-5">
+                <LayoutDashboard size={16} /> Dashboard
+              </Link>
+            )}
             <Link to="/booking" className="btn-primary text-sm !py-2.5 !px-5">
               <CalendarCheck size={16} /> New booking
             </Link>

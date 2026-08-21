@@ -1,17 +1,15 @@
 import { useTheme } from "@/lib/theme";
-import { Sun, Moon, Coffee } from "lucide-react";
+import { Moon, Feather } from "lucide-react";
 import { motion } from "framer-motion";
 
 const icons = {
-    light: Sun,
+    white: Feather,
     dark: Moon,
-    sepia: Coffee,
 };
 
 const labels = {
-    light: "Ivory Light",
+    white: "Pure White",
     dark: "Sacred Night",
-    sepia: "Temple Sepia",
 };
 
 export function ThemeSwitcher({ compact }) {

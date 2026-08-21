@@ -1,11 +1,12 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
 
-/* Premium divine palette: ivory, deep saffron/gold, charcoal */
-@theme inline {
+/* Premium divine palette: pure white, deep saffron/gold, charcoal.
+   Non-inline @theme so these tokens are emitted as real :root CSS variables,
+   which the base `body`/`*` rules read directly (white is the default theme)
+   and which the html.dark override below re-resolves. */
+@theme {
   --font-display: "Cormorant Garamond", "Cormorant", serif;
   --font-sans: "Inter", system-ui, sans-serif;
 
@@ -27,28 +28,35 @@
 }
 
 :root {
-  --background: oklch(0.992 0.004 85);   /* near-white warm ivory */
-  --foreground: oklch(0.21 0.02 50);     /* deep ink */
-  --ink: oklch(0.18 0.018 50);
-  --card: oklch(0.995 0.003 85);
-  --card-foreground: oklch(0.21 0.02 50);
-  --muted: oklch(0.96 0.008 80);
-  --muted-foreground: oklch(0.48 0.018 60);
-  --primary: oklch(0.55 0.16 55);        /* saffron-gold */
-  --primary-foreground: oklch(0.99 0.005 80);
+  --background: oklch(1 0 0);            /* pure white */
+  --foreground: oklch(0.22 0.006 250);  /* near-black, faintly cool */
+  --ink: oklch(0.18 0.006 250);
+  --card: oklch(1 0 0);                  /* pure white cards */
+  --card-foreground: oklch(0.22 0.006 250);
+  --muted: oklch(0.975 0.002 250);       /* very light cool gray */
+  --muted-foreground: oklch(0.50 0.01 250);
+  --primary: oklch(0.55 0.16 55);        /* saffron-gold (brand) */
+  --primary-foreground: oklch(0.99 0 0);
   --accent: oklch(0.72 0.14 70);
-  --accent-foreground: oklch(0.21 0.02 50);
+  --accent-foreground: oklch(0.22 0.006 250);
   --gold: oklch(0.78 0.13 80);
   --saffron: oklch(0.62 0.18 50);
-  --border: oklch(0.92 0.012 70);
+  --border: oklch(0.90 0.004 250);       /* crisp light-gray border */
   --ring: oklch(0.55 0.16 55);
   --radius: 0.5rem;
 }
 
 @layer base {
   * { border-color: var(--color-border); }
-  html { scroll-behavior: smooth; }
+  /* Prevent decorative, absolutely-positioned elements (rings, glows, marquees)
+     from causing horizontal page scroll on small screens. Use `overflow-x: hidden`
+     on the root: per spec the other axis computes to `auto`, so vertical scrolling
+     is preserved (unlike `clip`, which would also clip the y-axis and freeze the
+     page). Applied to <html> so it doesn't create an intermediate scroll container
+     that could break `position: sticky` descendants. */
+  html { scroll-behavior: smooth; overflow-x: hidden; }
   body {
+    max-width: 100%;
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
@@ -176,36 +184,5 @@ html.dark {
   --ring-rgb: 215 130 55;
 }
 
-html.sepia {
-  --background: oklch(0.93 0.025 85);
-  --background-rgb: 240 230 210;
-  --foreground: oklch(0.22 0.02 55);
-  --foreground-rgb: 55 45 30;
-  --ink: oklch(0.18 0.018 50);
-  --ink-rgb: 45 38 26;
-  --card: oklch(0.95 0.02 85);
-  --card-rgb: 245 237 220;
-  --card-foreground: oklch(0.22 0.02 55);
-  --card-foreground-rgb: 55 45 30;
-  --muted: oklch(0.88 0.02 80);
-  --muted-rgb: 225 215 195;
-  --muted-foreground: oklch(0.48 0.02 60);
-  --muted-foreground-rgb: 120 105 85;
-  --primary: oklch(0.52 0.16 55);
-  --primary-rgb: 170 90 20;
-  --primary-foreground: oklch(0.99 0.005 80);
-  --primary-foreground-rgb: 253 251 245;
-  --accent: oklch(0.7 0.14 70);
-  --accent-rgb: 220 155 45;
-  --accent-foreground: oklch(0.22 0.02 55);
-  --accent-foreground-rgb: 55 45 30;
-  --gold: oklch(0.76 0.13 80);
-  --gold-rgb: 228 175 60;
-  --saffron: oklch(0.6 0.18 50);
-  --saffron-rgb: 195 100 18;
-  --border: oklch(0.85 0.02 70);
-  --border-rgb: 215 205 185;
-  --ring: oklch(0.52 0.16 55);
-  --ring-rgb: 170 90 20;
-}
+/* Only two themes: white (the :root default above) and dark (below). */
 
