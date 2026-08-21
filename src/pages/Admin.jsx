@@ -12,8 +12,6 @@ import {
   Trash2,
   Check,
   X,
-  ArrowUpRight,
-  ArrowDownRight,
   Plus,
   ShieldAlert,
   Languages,
@@ -44,9 +42,10 @@ const T = {
   bad: "#a83232",
 };
 
+// Minimalistic dashboard: one clean sans (Inter, loaded in index.html) across
+// everything — headings and KPI numbers no longer use the decorative serif.
 const fontStack =
-  '"Söhne", "Inter", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif';
-const serif = '"Cormorant Garamond", "Times New Roman", serif';
+  '"Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
 // Admin uses inline styles (no Tailwind), so responsiveness is driven by this
 // JS breakpoint hook rather than CSS media queries.
@@ -276,7 +275,7 @@ function Gate({ user, isAdmin }) {
         >
           <ShieldAlert size={18} strokeWidth={1.6} />
         </div>
-        <div style={{ fontFamily: serif, fontSize: 24, fontWeight: 500 }}>
+        <div style={{ fontFamily: fontStack, fontSize: 24, fontWeight: 500 }}>
           {restricted ? t("admin.gate.restricted") : t("admin.gate.signIn")}
         </div>
         <p style={{ fontSize: 13, color: T.muted, marginTop: 8 }}>
@@ -419,7 +418,7 @@ function Sidebar({ tab, setTab, logout, user }) {
       }}
     >
       <div style={{ padding: "0 8px 32px" }}>
-        <div style={{ fontFamily: serif, fontSize: 22, fontWeight: 500, lineHeight: 1 }}>
+        <div style={{ fontFamily: fontStack, fontSize: 22, fontWeight: 500, lineHeight: 1 }}>
           Divya<span style={{ color: T.muted }}>.</span>
         </div>
         <div style={{ fontSize: 10.5, color: T.muted, marginTop: 6, letterSpacing: "0.12em" }}>
@@ -528,7 +527,7 @@ function MobileTopNav({ tab, setTab, logout, user, open, setOpen }) {
       }}
     >
       <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-        <span style={{ fontFamily: serif, fontSize: 20, fontWeight: 500, lineHeight: 1 }}>
+        <span style={{ fontFamily: fontStack, fontSize: 20, fontWeight: 500, lineHeight: 1 }}>
           Divya<span style={{ color: T.muted }}>.</span>
         </span>
         <span style={{ fontSize: 10, color: T.muted, letterSpacing: "0.12em" }}>
@@ -586,7 +585,7 @@ function MobileTopNav({ tab, setTab, logout, user, open, setOpen }) {
                 padding: "4px 6px 16px",
               }}
             >
-              <span style={{ fontFamily: serif, fontSize: 18, fontWeight: 500 }}>
+              <span style={{ fontFamily: fontStack, fontSize: 18, fontWeight: 500 }}>
                 Divya<span style={{ color: T.muted }}>.</span>
               </span>
               <button
@@ -717,7 +716,7 @@ function TopBar({ tab }) {
         <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.1em", marginBottom: 6 }}>
           {today.toUpperCase()}
         </div>
-        <h1 style={{ fontFamily: serif, fontSize: isMobile ? 26 : 36, fontWeight: 500, margin: 0, letterSpacing: "-0.01em" }}>
+        <h1 style={{ fontFamily: fontStack, fontSize: isMobile ? 26 : 36, fontWeight: 500, margin: 0, letterSpacing: "-0.01em" }}>
           {titles[tab]}
         </h1>
       </div>
@@ -743,10 +742,10 @@ function Overview({ stats, bookings }) {
           marginBottom: isMobile ? 28 : 40,
         }}
       >
-        <Metric label={t("admin.metrics.total")} value={stats.total} delta="+12%" up />
-        <Metric label={t("admin.metrics.confirmed")} value={stats.confirmed} delta="+8%" up />
-        <Metric label={t("admin.metrics.devotees")} value={stats.users} delta="+3%" up />
-        <Metric label={t("admin.metrics.revenue")} value={`₹${(stats.revenue / 1000).toFixed(1)}k`} delta="-2%" />
+        <Metric label={t("admin.metrics.total")} value={stats.total} />
+        <Metric label={t("admin.metrics.confirmed")} value={stats.confirmed} />
+        <Metric label={t("admin.metrics.devotees")} value={stats.users} />
+        <Metric label={t("admin.metrics.revenue")} value={`₹${(stats.revenue / 1000).toFixed(1)}k`} />
       </section>
 
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.4fr 1fr", gap: isMobile ? 20 : 32 }}>
@@ -791,7 +790,7 @@ function Overview({ stats, bookings }) {
   );
 }
 
-function Metric({ label, value, delta, up }) {
+function Metric({ label, value }) {
   return (
     <div
       style={{
@@ -802,23 +801,8 @@ function Metric({ label, value, delta, up }) {
       <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.08em", textTransform: "uppercase" }}>
         {label}
       </div>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: 12 }}>
-        <div style={{ fontFamily: serif, fontSize: 32, fontWeight: 500, letterSpacing: "-0.02em" }}>
-          {value}
-        </div>
-        {delta && (
-          <span
-            style={{
-              fontSize: 11,
-              color: up ? T.good : T.bad,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 2,
-            }}
-          >
-            {up ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />} {delta}
-          </span>
-        )}
+      <div style={{ fontFamily: fontStack, fontSize: 32, fontWeight: 600, letterSpacing: "-0.02em", marginTop: 12 }}>
+        {value}
       </div>
     </div>
   );
@@ -853,7 +837,7 @@ function SummaryCard({ label, value, caption, accent }) {
       <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.08em", textTransform: "uppercase" }}>
         {label}
       </div>
-      <div style={{ fontFamily: serif, fontSize: 30, fontWeight: 500, letterSpacing: "-0.02em", marginTop: 8, color: accent ? T.good : T.ink }}>
+      <div style={{ fontFamily: fontStack, fontSize: 30, fontWeight: 500, letterSpacing: "-0.02em", marginTop: 8, color: accent ? T.good : T.ink }}>
         {value}
       </div>
       {caption && <div style={{ fontSize: 12, color: T.muted, marginTop: 4 }}>{caption}</div>}
@@ -1064,7 +1048,7 @@ function UsersList({ users }) {
               fontSize: 13,
               fontWeight: 500,
               color: T.ink,
-              fontFamily: serif,
+              fontFamily: fontStack,
             }}
           >
             {(u.name || u.email)[0].toUpperCase()}
@@ -1305,7 +1289,7 @@ function ServicesList({ services, onAdd, onRemove }) {
                 {String(i + 1).padStart(2, "0")}
               </div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontFamily: serif, fontSize: 18, fontWeight: 500 }}>{s.name}</div>
+                <div style={{ fontFamily: fontStack, fontSize: 18, fontWeight: 500 }}>{s.name}</div>
                 {s.description && (
                   <div style={{ fontSize: 12, color: T.muted, marginTop: 2, fontFamily: fontStack }}>
                     {s.description}
