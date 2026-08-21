@@ -190,6 +190,8 @@ function AdminPage() {
           <Bookings
             bookings={filtered}
             total={allBookings.length}
+            services={services}
+            stats={stats}
             query={query}
             setQuery={setQuery}
             updateStatus={updateStatus}
@@ -210,19 +212,28 @@ function AdminPage() {
   );
 }
 
+// Amount (₹) for a booking = current price of its service; 0 if the service no
+// longer exists (bookings store the service as a free-text name).
+function serviceAmount(services, name) {
+  return services.find((s) => s.name === name)?.price ?? 0;
+}
+
 function computeStats(bookings, services) {
   const total = bookings.length;
   const confirmed = bookings.filter((b) => b.status === "Confirmed").length;
   const pending = bookings.filter((b) => b.status?.includes("Pending")).length;
   const cancelled = bookings.filter((b) => b.status === "Cancelled").length;
   const users = new Set(bookings.map((b) => b.email).filter(Boolean)).size;
+  // Revenue = confirmed bookings only. Bookings cost = every booking regardless
+  // of status (pending + confirmed + cancelled). Both recompute live via useMemo.
   const revenue = bookings
     .filter((b) => b.status === "Confirmed")
-    .reduce((sum, b) => {
-      const svc = services.find((s) => s.name === b.service);
-      return sum + (svc?.price || 11000);
-    }, 0);
-  return { total, confirmed, pending, cancelled, users, revenue };
+    .reduce((sum, b) => sum + serviceAmount(services, b.service), 0);
+  const bookingsCost = bookings.reduce(
+    (sum, b) => sum + serviceAmount(services, b.service),
+    0
+  );
+  return { total, confirmed, pending, cancelled, users, revenue, bookingsCost };
 }
 
 /* ---------------- Role gate ---------------- */
@@ -835,20 +846,59 @@ function Bar({ label, value, total }) {
   );
 }
 
+/* Money summary card used at the top of the Bookings tab. */
+function SummaryCard({ label, value, caption, accent }) {
+  return (
+    <div style={{ background: T.surface, border: `1px solid ${T.line}`, padding: "18px 22px", borderRadius: 2 }}>
+      <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+        {label}
+      </div>
+      <div style={{ fontFamily: serif, fontSize: 30, fontWeight: 500, letterSpacing: "-0.02em", marginTop: 8, color: accent ? T.good : T.ink }}>
+        {value}
+      </div>
+      {caption && <div style={{ fontSize: 12, color: T.muted, marginTop: 4 }}>{caption}</div>}
+    </div>
+  );
+}
+
 /* ---------------- Bookings ---------------- */
-function Bookings({ bookings, total, query, setQuery, updateStatus, removeBooking }) {
+function Bookings({ bookings, total, services, stats, query, setQuery, updateStatus, removeBooking }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
+  const money = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
   const headers = [
     t("admin.bookings.cols.devotee"),
     t("admin.bookings.cols.phone"),
     t("admin.bookings.cols.service"),
+    t("admin.bookings.cols.amount"),
     t("admin.bookings.cols.date"),
     t("admin.bookings.cols.status"),
     "",
   ];
   return (
     <div>
+      {/* Live money summary — computed over ALL bookings, not the filtered view. */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+          gap: 12,
+          marginBottom: 18,
+        }}
+      >
+        <SummaryCard
+          label={t("admin.bookings.totalRevenue")}
+          value={money(stats.revenue)}
+          caption={t("admin.bookings.confirmedNote", { count: stats.confirmed })}
+          accent
+        />
+        <SummaryCard
+          label={t("admin.bookings.totalCost")}
+          value={money(stats.bookingsCost)}
+          caption={t("admin.bookings.allNote", { count: stats.total })}
+        />
+      </div>
+
       <div
         style={{
           display: "flex",
@@ -895,7 +945,7 @@ function Bookings({ bookings, total, query, setQuery, updateStatus, removeBookin
         <Block><Empty text={t("admin.bookings.empty")} /></Block>
       ) : (
         <div style={{ background: T.surface, border: `1px solid ${T.line}`, overflowX: "auto" }}>
-          <table style={{ width: "100%", minWidth: 560, borderCollapse: "collapse", fontSize: 13 }}>
+          <table style={{ width: "100%", minWidth: 680, borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>
                 {headers.map((h, idx) => (
@@ -926,6 +976,11 @@ function Bookings({ bookings, total, query, setQuery, updateStatus, removeBookin
                   </td>
                   <td style={{ ...tdStyle, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{b.phone || "—"}</td>
                   <td style={tdStyle}>{b.service || "—"}</td>
+                  <td style={{ ...tdStyle, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: 500 }}>
+                    {serviceAmount(services, b.service)
+                      ? `₹${serviceAmount(services, b.service).toLocaleString("en-IN")}`
+                      : "—"}
+                  </td>
                   <td style={tdStyle}>
                     {b.date || new Date(b.createdAt).toLocaleDateString()}
                   </td>
