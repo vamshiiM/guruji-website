@@ -18,6 +18,9 @@ import {
   Menu,
   MessageSquare,
   ArrowLeft,
+  KeyRound,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/lib/auth";
@@ -85,6 +88,7 @@ function AdminPage() {
   const [query, setQuery] = useState("");
   const isMobile = useIsMobile();
   const [navOpen, setNavOpen] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
   // Admin-only data (contact messages + real registered users). Fetched here
   // rather than in AuthProvider so non-admin visitors never hit these 403 routes.
   const [messages, setMessages] = useState([]);
@@ -182,10 +186,12 @@ function AdminPage() {
           user={user}
           open={navOpen}
           setOpen={setNavOpen}
+          onChangePassword={() => setPwOpen(true)}
         />
       ) : (
-        <Sidebar tab={tab} setTab={setTab} logout={handleLogout} user={user} />
+        <Sidebar tab={tab} setTab={setTab} logout={handleLogout} user={user} onChangePassword={() => setPwOpen(true)} />
       )}
+      {pwOpen && <ChangePasswordModal onClose={() => setPwOpen(false)} />}
       <main
         style={{
           padding: isMobile ? "20px 16px 64px" : "40px 48px 80px",
@@ -403,8 +409,128 @@ function BackToSite() {
   );
 }
 
+/* Sidebar/drawer entry that opens the change-password modal. */
+function ChangePwButton({ onClick }) {
+  const { t } = useTranslation();
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "8px 10px",
+        borderRadius: 3,
+        marginBottom: 4,
+        width: "100%",
+        textAlign: "left",
+        border: "none",
+        background: "transparent",
+        cursor: "pointer",
+        color: T.ink2,
+        fontFamily: fontStack,
+        fontSize: 13,
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = T.lineSoft)}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+    >
+      <KeyRound size={15} strokeWidth={1.6} />
+      {t("admin.password.trigger")}
+    </button>
+  );
+}
+
+/* Modal: change the signed-in admin's password (same endpoint as users). */
+function ChangePasswordModal({ onClose }) {
+  const { t } = useTranslation();
+  const { changePassword } = useAuth();
+  const [form, setForm] = useState({ current: "", next: "", confirm: "" });
+  const [show, setShow] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (form.next.length < 6) return toast.error(t("admin.password.tooShort"));
+    if (form.next !== form.confirm) return toast.error(t("admin.password.mismatch"));
+    if (form.next === form.current) return toast.error(t("admin.password.same"));
+    setSaving(true);
+    try {
+      await changePassword(form.current, form.next);
+      toast.success(t("admin.password.success"));
+      onClose();
+    } catch (err) {
+      if (err?.code === "BAD_CURRENT_PASSWORD") toast.error(t("admin.password.wrongCurrent"));
+      else if (err?.code === "SAME_PASSWORD") toast.error(t("admin.password.same"));
+      else if (err?.code === "RATE_LIMITED") toast.error("Too many attempts — please try again later.");
+      else toast.error(t("admin.password.failed"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inp = {
+    width: "100%",
+    border: `1px solid ${T.line}`,
+    background: T.bg,
+    padding: "10px 12px",
+    fontSize: 13,
+    fontFamily: fontStack,
+    color: T.ink,
+    borderRadius: 3,
+    outline: "none",
+    boxSizing: "border-box",
+  };
+  const lbl = (txt) => (
+    <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6 }}>{txt}</div>
+  );
+
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 60, display: "grid", placeItems: "center", padding: 20 }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ width: "100%", maxWidth: 420, background: T.surface, border: `1px solid ${T.line}`, borderRadius: 4, padding: 24, fontFamily: fontStack, color: T.ink }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <KeyRound size={18} strokeWidth={1.6} />
+            <span style={{ fontSize: 18, fontWeight: 500 }}>{t("admin.password.title")}</span>
+          </div>
+          <button onClick={onClose} aria-label={t("admin.password.cancel")} style={{ border: "none", background: "transparent", cursor: "pointer", color: T.ink2, display: "grid", placeItems: "center" }}>
+            <X size={18} />
+          </button>
+        </div>
+        <form onSubmit={submit}>
+          <div style={{ marginBottom: 12 }}>
+            {lbl(t("admin.password.current"))}
+            <input type={show ? "text" : "password"} required autoComplete="current-password" value={form.current} onChange={(e) => setForm((f) => ({ ...f, current: e.target.value }))} style={inp} />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            {lbl(t("admin.password.next"))}
+            <input type={show ? "text" : "password"} required minLength={6} autoComplete="new-password" value={form.next} onChange={(e) => setForm((f) => ({ ...f, next: e.target.value }))} style={inp} />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            {lbl(t("admin.password.confirm"))}
+            <input type={show ? "text" : "password"} required minLength={6} autoComplete="new-password" value={form.confirm} onChange={(e) => setForm((f) => ({ ...f, confirm: e.target.value }))} style={inp} />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 16 }}>
+            <button type="button" onClick={() => setShow((v) => !v)} style={{ border: "none", background: "transparent", cursor: "pointer", color: T.muted, fontSize: 12, fontFamily: fontStack, display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {show ? <EyeOff size={14} /> : <Eye size={14} />} {show ? t("admin.password.hide") : t("admin.password.show")}
+            </button>
+            <button type="submit" disabled={saving} style={{ border: "none", background: T.ink, color: "#fff", padding: "9px 16px", fontSize: 12, fontWeight: 500, cursor: "pointer", borderRadius: 2, fontFamily: fontStack, opacity: saving ? 0.6 : 1 }}>
+              {saving ? t("admin.password.saving") : t("admin.password.submit")}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 /* ---------------- Sidebar ---------------- */
-function Sidebar({ tab, setTab, logout, user }) {
+function Sidebar({ tab, setTab, logout, user, onChangePassword }) {
   const { t } = useTranslation();
   const items = [
     { id: "overview", label: t("admin.nav.overview"), icon: LayoutGrid },
@@ -470,6 +596,7 @@ function Sidebar({ tab, setTab, logout, user }) {
 
       <div style={{ marginTop: "auto" }}>
         <BackToSite />
+        <ChangePwButton onClick={onChangePassword} />
         <AdminLangPicker />
         <div
           style={{
@@ -508,7 +635,7 @@ function Sidebar({ tab, setTab, logout, user }) {
 }
 
 /* ---------------- Mobile top nav + drawer ---------------- */
-function MobileTopNav({ tab, setTab, logout, user, open, setOpen }) {
+function MobileTopNav({ tab, setTab, logout, user, open, setOpen, onChangePassword }) {
   const { t } = useTranslation();
   const items = [
     { id: "overview", label: t("admin.nav.overview"), icon: LayoutGrid },
@@ -646,6 +773,7 @@ function MobileTopNav({ tab, setTab, logout, user, open, setOpen }) {
 
             <div style={{ marginTop: "auto" }}>
               <BackToSite />
+              <ChangePwButton onClick={() => { setOpen(false); onChangePassword(); }} />
               <AdminLangPicker />
               <div
                 style={{

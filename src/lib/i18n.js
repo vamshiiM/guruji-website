@@ -29,6 +29,7 @@ const resources = {
       language: "Language",
       admin: {
         brand: "ADMIN", signOut: "Sign out", backToSite: "Back to website",
+        password: { trigger: "Change password", title: "Change password", current: "Current password", next: "New password", confirm: "Confirm new password", show: "Show", hide: "Hide", cancel: "Cancel", submit: "Update password", saving: "Saving…", success: "Password updated", mismatch: "New passwords do not match", tooShort: "New password must be at least 6 characters", wrongCurrent: "Current password is incorrect", same: "New password must be different", failed: "Could not update password" },
         nav: { overview: "Overview", bookings: "Bookings", users: "Devotees", messages: "Messages", services: "Services" },
         gate: { restricted: "Access restricted", signIn: "Sign in required", restrictedBody: "This area is reserved for administrators. Redirecting…", signInBody: "Please sign in with an administrator account. Redirecting…", continue: "Continue" },
         metrics: { total: "Total bookings", confirmed: "Confirmed", devotees: "Devotees", revenue: "Revenue" },
@@ -68,6 +69,7 @@ const resources = {
       language: "भाषा",
       admin: {
         brand: "एडमिन", signOut: "साइन आउट", backToSite: "वेबसाइट पर वापस",
+        password: { trigger: "पासवर्ड बदलें", title: "पासवर्ड बदलें", current: "वर्तमान पासवर्ड", next: "नया पासवर्ड", confirm: "नए पासवर्ड की पुष्टि करें", show: "दिखाएँ", hide: "छिपाएँ", cancel: "रद्द करें", submit: "पासवर्ड अपडेट करें", saving: "सहेजा जा रहा है…", success: "पासवर्ड अपडेट हो गया", mismatch: "नए पासवर्ड मेल नहीं खाते", tooShort: "नया पासवर्ड कम से कम 6 अक्षरों का होना चाहिए", wrongCurrent: "वर्तमान पासवर्ड गलत है", same: "नया पासवर्ड अलग होना चाहिए", failed: "पासवर्ड अपडेट नहीं हो सका" },
         nav: { overview: "अवलोकन", bookings: "बुकिंग", users: "भक्त", messages: "संदेश", services: "सेवाएँ" },
         gate: { restricted: "प्रवेश प्रतिबंधित", signIn: "साइन इन आवश्यक", restrictedBody: "यह क्षेत्र केवल व्यवस्थापकों के लिए है। पुनर्निर्देशन…", signInBody: "कृपया व्यवस्थापक खाते से साइन इन करें। पुनर्निर्देशन…", continue: "जारी रखें" },
         metrics: { total: "कुल बुकिंग", confirmed: "पुष्ट", devotees: "भक्त", revenue: "राजस्व" },
@@ -107,6 +109,7 @@ const resources = {
       language: "भाषा",
       admin: {
         brand: "अ‍ॅडमिन", signOut: "साइन आउट", backToSite: "वेबसाइटवर परत",
+        password: { trigger: "पासवर्ड बदला", title: "पासवर्ड बदला", current: "सध्याचा पासवर्ड", next: "नवीन पासवर्ड", confirm: "नवीन पासवर्डची पुष्टी करा", show: "दाखवा", hide: "लपवा", cancel: "रद्द करा", submit: "पासवर्ड अपडेट करा", saving: "जतन करत आहे…", success: "पासवर्ड अपडेट झाला", mismatch: "नवीन पासवर्ड जुळत नाहीत", tooShort: "नवीन पासवर्ड किमान 6 अक्षरांचा असावा", wrongCurrent: "सध्याचा पासवर्ड चुकीचा आहे", same: "नवीन पासवर्ड वेगळा असावा", failed: "पासवर्ड अपडेट होऊ शकला नाही" },
         nav: { overview: "अवलोकन", bookings: "बुकिंग", users: "भक्त", messages: "संदेश", services: "सेवा" },
         gate: { restricted: "प्रवेश प्रतिबंधित", signIn: "साइन इन आवश्यक", restrictedBody: "हे क्षेत्र फक्त प्रशासकांसाठी आहे.", signInBody: "कृपया प्रशासक खात्याने साइन इन करा.", continue: "सुरू ठेवा" },
         metrics: { total: "एकूण बुकिंग", confirmed: "पुष्ट", devotees: "भक्त", revenue: "महसूल" },

@@ -69,6 +69,11 @@ export function AuthProvider({ children }) {
     setBookings([]);
   }, []);
 
+  const changePassword = useCallback(
+    (currentPassword, newPassword) => api.changePassword(currentPassword, newPassword),
+    []
+  );
+
   // Bookings -----------------------------------------------------------------
   const addBooking = useCallback(async (booking) => {
     const { booking: created } = await api.createBooking(booking);
@@ -109,6 +114,7 @@ export function AuthProvider({ children }) {
       login,
       signup,
       logout,
+      changePassword,
       // Server already scopes bookings by role, so `bookings` and `allBookings`
       // are the same array (admin: all; user: own).
       bookings,
@@ -127,6 +133,7 @@ export function AuthProvider({ children }) {
       login,
       signup,
       logout,
+      changePassword,
       bookings,
       addBooking,
       updateBooking,
