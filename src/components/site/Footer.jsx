@@ -29,11 +29,11 @@ export function Footer() {
         <div>
           <h4 className="font-display text-lg mb-3">{t("footer.connect")}</h4>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            <li className="flex items-center gap-2"><Phone size={14} /><span>+91 98765 43210</span></li>
-            <li className="flex items-center gap-2"><Mail size={14} /><span>hello@divyaseva.in</span></li>
-            <li className="flex items-center gap-2"><MapPin size={14} /><span>Varanasi, India</span></li>
+            <li className="flex items-center gap-2"><Phone size={14} /><span>+91 7498293339</span></li>
+            <li className="flex items-center gap-2"><Mail size={14} /><span></span></li>
+            <li className="flex items-center gap-2"><MapPin size={14} /><span>Worli_koliwada,Mumbai,India</span></li>
           </ul>
-          <p className="mt-4 text-xs text-muted-foreground">© {new Date().getFullYear()} Divya Seva</p>
+          <p className="mt-4 text-xs text-muted-foreground">© {new Date().getFullYear()} Shivarpanastro.com</p>
         </div>
       </div>
     </footer>
