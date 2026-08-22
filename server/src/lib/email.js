@@ -5,17 +5,18 @@ import { env } from "../config/env.js";
 // app works end-to-end without email credentials.
 const resend = env.resendApiKey ? new Resend(env.resendApiKey) : null;
 
-async function send({ subject, html }) {
-  if (!resend || !env.notifyEmail) {
-    console.log(`[email:skipped] would send "${subject}" to ${env.notifyEmail || "(no NOTIFY_EMAIL)"}`);
+async function send({ to, subject, html, replyTo }) {
+  if (!resend || !to) {
+    console.log(`[email:skipped] would send "${subject}" to ${to || "(no recipient)"}`);
     return;
   }
   try {
     await resend.emails.send({
       from: env.mailFrom,
-      to: env.notifyEmail,
+      to,
       subject,
       html,
+      ...(replyTo ? { replyTo } : {}),
     });
   } catch (e) {
     // Never let an email failure break the request that triggered it.
@@ -38,7 +39,35 @@ export function sendBookingNotification(b) {
     ${row("Address", b.address)}
     ${row("Notes", b.notes)}
   `;
-  return send({ subject: `New booking: ${b.service} — ${b.name}`, html });
+  // Reply-to the devotee so the admin can respond to them directly.
+  return send({ to: env.notifyEmail, replyTo: b.email, subject: `New booking: ${b.service} — ${b.name}`, html });
+}
+
+// Confirmation sent to the devotee who booked. Reply-to the business inbox so
+// their replies reach the admin, not the unmonitored no-reply address.
+export function sendUserBookingConfirmation(b) {
+  if (!b.email) return;
+  const html = `
+    <div style="font-family:Arial,Helvetica,sans-serif;color:#2a2a2a;max-width:540px;margin:0 auto">
+      <h2 style="color:#b8860b;margin:0 0 8px">Your booking is received 🙏</h2>
+      <p style="margin:0 0 12px">Namaste ${b.name || "there"},</p>
+      <p style="margin:0 0 16px;line-height:1.6">
+        Thank you for booking with <strong>Divya Seva</strong>. We've received your request and
+        Pandit&nbsp;Ji will confirm the details with you shortly.
+      </p>
+      <div style="background:#faf7f0;border:1px solid #eadfc5;border-radius:8px;padding:16px 18px;margin:0 0 16px">
+        ${row("Service", b.service)}
+        ${row("Date", b.date)}
+        ${row("Time", b.time)}
+        ${row("Address", b.address)}
+      </div>
+      <p style="margin:0 0 16px;line-height:1.6">
+        If any detail is incorrect, just reply to this email and we'll help.
+      </p>
+      <p style="margin:20px 0 0;color:#7a6a4f">With devotion,<br/>Divya Seva</p>
+    </div>
+  `;
+  return send({ to: b.email, replyTo: env.notifyEmail, subject: `Booking received — ${b.service}`, html });
 }
 
 export function sendContactNotification(m) {
@@ -49,5 +78,5 @@ export function sendContactNotification(m) {
     <p style="margin:12px 0 4px"><strong>Message:</strong></p>
     <p style="white-space:pre-wrap">${m.message}</p>
   `;
-  return send({ subject: `New enquiry from ${m.name}`, html });
+  return send({ to: env.notifyEmail, replyTo: m.email, subject: `New enquiry from ${m.name}`, html });
 }
