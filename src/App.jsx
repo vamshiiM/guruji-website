@@ -1,19 +1,30 @@
 import { Routes, Route, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "@/lib/auth";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { applyPersistedLanguage } from "@/lib/i18n";
 
+// Home loads eagerly (it's the landing page). Every other route is code-split
+// so its JS — most importantly the large admin dashboard — isn't downloaded
+// until that route is actually visited.
 import Home from "@/pages/Home";
-import About from "@/pages/About";
-import Services from "@/pages/Services";
-import Booking from "@/pages/Booking";
-import Contact from "@/pages/Contact";
-import Login from "@/pages/Login";
-import Profile from "@/pages/Profile";
-import Admin from "@/pages/Admin";
+const About = lazy(() => import("@/pages/About"));
+const Services = lazy(() => import("@/pages/Services"));
+const Booking = lazy(() => import("@/pages/Booking"));
+const Contact = lazy(() => import("@/pages/Contact"));
+const Login = lazy(() => import("@/pages/Login"));
+const Profile = lazy(() => import("@/pages/Profile"));
+const Admin = lazy(() => import("@/pages/Admin"));
+
+function RouteFallback() {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center px-6">
+      <p className="text-muted-foreground text-sm">Loading…</p>
+    </div>
+  );
+}
 
 function NotFound() {
   return (
@@ -38,23 +49,27 @@ export default function App() {
   return (
     <AuthProvider>
       {isAdmin ? (
-        <Routes>
-          <Route path="/admin" element={<Admin />} />
-        </Routes>
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="/admin" element={<Admin />} />
+          </Routes>
+        </Suspense>
       ) : (
         <>
           <Header />
           <main className="pt-16">
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/services" element={<Services />} />
-              <Route path="/booking" element={<Booking />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <Suspense fallback={<RouteFallback />}>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/services" element={<Services />} />
+                <Route path="/booking" element={<Booking />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
           </main>
           <Footer />
         </>

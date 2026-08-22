@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
-import { motion, useScroll, useTransform, useMotionValue, useSpring } from "framer-motion";
-import { useRef, useEffect, useState } from "react";
+import { motion, useScroll, useTransform } from "framer-motion";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Flame, Sparkles, CalendarCheck, ArrowRight, Star, Quote, Sunrise, Moon, Sun, Flower2, ScrollText, HandHeart } from "lucide-react";
 import pujaImg from "@/assets/puja-hands.jpg";
@@ -9,6 +9,7 @@ import templeInteriorImg from "@/assets/temple-interior.jpg";
 import { Reveal } from "@/components/site/Reveal";
 import { useAuth } from "@/lib/auth";
 import { iconFor } from "@/lib/serviceIcons";
+import { useReducedMotionOrMobile } from "@/lib/useLite";
 
 
 
@@ -25,78 +26,37 @@ function Home() {
   const { services } = useAuth();
   // First three DB services power the homepage preview (single source of truth).
   const preview = services.slice(0, 3);
-  const heroRef = useRef(null);
+  // Suppress heavy decorative motion on mobile / reduced-motion.
+  const lite = useReducedMotionOrMobile();
+
+  // Image parallax only — transform-only, GPU-composited (cheap). Disabled when `lite`.
   const { scrollY } = useScroll();
-  const y1 = useTransform(scrollY, [0, 800], [0, 160]);
-  const y2 = useTransform(scrollY, [0, 800], [0, -200]);
-  const heroContentY = useTransform(scrollY, [0, 700], [0, 120]);
-  const heroOpacity = useTransform(scrollY, [0, 500], [1, 0.4]);
-  const orb1Y = useTransform(scrollY, [0, 1000], [0, -250]);
-  const orb2Y = useTransform(scrollY, [0, 1000], [0, 180]);
-  const orb3Y = useTransform(scrollY, [0, 1000], [0, -120]);
   const pujaImgY = useTransform(scrollY, [800, 2200], [-60, 60]);
   const bellY = useTransform(scrollY, [1400, 2600], [-100, 100]);
   const templeY = useTransform(scrollY, [600, 2000], [-40, 40]);
 
-  // cursor-following divine glow
-  const mx = useMotionValue(0.5);
-  const my = useMotionValue(0.3);
-  const sx = useSpring(mx, { stiffness: 60, damping: 20 });
-  const sy = useSpring(my, { stiffness: 60, damping: 20 });
-  useEffect(() => {
-    const onMove = (e) => {
-      const el = heroRef.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      mx.set((e.clientX - r.left) / r.width);
-      my.set((e.clientY - r.top) / r.height);
-    };
-    window.addEventListener("mousemove", onMove);
-    return () => window.removeEventListener("mousemove", onMove);
-  }, [mx, my]);
-  const glowX = useTransform(sx, (v) => `${v * 100}%`);
-  const glowY = useTransform(sy, (v) => `${v * 100}%`);
-
-  const [shlokaIdx, setShlokaIdx] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setShlokaIdx((i) => (i + 1) % shlokas.length), 3500);
-    return () => clearInterval(t);
-  }, []);
-
   return (
     <>
       {/* HERO */}
-      <section ref={heroRef} className="relative min-h-[94vh] overflow-hidden flex items-center">
-        {/* cursor glow */}
-        <motion.div
+      <section className="relative min-h-[94vh] overflow-hidden flex items-center">
+        {/* static divine glow */}
+        <div
           aria-hidden
-          className="absolute h-[480px] w-[480px] rounded-full blur-3xl pointer-events-none -z-10"
-          style={{
-            left: glowX, top: glowY, x: "-50%", y: "-50%",
-            background: "radial-gradient(circle, color-mix(in oklab, var(--gold) 35%, transparent), transparent 70%)",
-          }}
+          className="absolute right-[12%] top-[22%] h-[480px] w-[480px] rounded-full blur-3xl pointer-events-none -z-10"
+          style={{ background: "radial-gradient(circle, color-mix(in oklab, var(--gold) 30%, transparent), transparent 70%)" }}
         />
 
-        {/* Floating orbs with parallax */}
-        <motion.div style={{ y: orb1Y }} className="absolute inset-0 -z-10 pointer-events-none">
-          <Orb className="top-[14%] left-[6%] h-64 w-64" colorA="var(--saffron)" colorB="transparent" delay={0} />
-        </motion.div>
-        <motion.div style={{ y: orb2Y }} className="absolute inset-0 -z-10 pointer-events-none">
-          <Orb className="bottom-[10%] left-[40%] h-40 w-40" colorA="var(--gold)" colorB="transparent" delay={1.2} />
-        </motion.div>
-        <motion.div style={{ y: orb3Y }} className="absolute inset-0 -z-10 pointer-events-none">
-          <Orb className="top-[18%] right-[8%] h-52 w-52" colorA="var(--gold)" colorB="transparent" delay={2.4} />
-        </motion.div>
+        {/* Static accent orbs */}
+        <Orb className="top-[14%] left-[6%] h-64 w-64" color="var(--saffron)" />
+        <Orb className="bottom-[10%] left-[40%] h-40 w-40" color="var(--gold)" />
+        <Orb className="top-[18%] right-[8%] h-52 w-52" color="var(--gold)" />
 
-        {/* Rotating mandala */}
-        <motion.div
+        {/* Static mandala ring */}
+        <div
           aria-hidden
-          style={{ y: y2 }}
           className="absolute top-1/2 right-[-200px] -translate-y-1/2 hidden md:block -z-10"
         >
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 90, repeat: Infinity, ease: "linear" }}
+          <div
             className="h-[560px] w-[560px] rounded-full"
             style={{
               background: "conic-gradient(from 0deg, transparent, color-mix(in oklab, var(--gold) 40%, transparent), transparent 25%, color-mix(in oklab, var(--saffron) 35%, transparent), transparent 50%, color-mix(in oklab, var(--gold) 25%, transparent), transparent 75%)",
@@ -106,19 +66,17 @@ function Home() {
               WebkitMaskComposite: "source-over",
             }}
           />
-        </motion.div>
+        </div>
 
-        {/* Faint Om */}
-        <motion.div
-          style={{ y: y1 }}
-          animate={{ opacity: [0.06, 0.14, 0.06] }}
-          transition={{ duration: 6, repeat: Infinity }}
+        {/* Faint Om (static) */}
+        <div
           className="absolute right-[14%] top-[28%] font-display text-[14rem] leading-none select-none -z-10 hidden lg:block"
+          style={{ opacity: 0.1 }}
         >
           <span style={{ background: "linear-gradient(135deg, var(--saffron), var(--gold))", WebkitBackgroundClip: "text", color: "transparent" }}>ॐ</span>
-        </motion.div>
+        </div>
 
-        <motion.div style={{ y: heroContentY, opacity: heroOpacity }} className="mx-auto max-w-7xl px-6 w-full relative grid lg:grid-cols-[1.3fr_1fr] gap-12 items-center">
+        <div className="mx-auto max-w-7xl px-6 w-full relative grid lg:grid-cols-[1.3fr_1fr] gap-12 items-center">
           <div>
             <motion.span
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
@@ -149,27 +107,8 @@ function Home() {
               {t("home.sub")}
             </motion.p>
 
-            {/* Live shloka ticker */}
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
-              className="mt-6 inline-flex items-center gap-3 rounded-full px-4 py-2 border"
-              style={{ borderColor: "color-mix(in oklab, var(--gold) 30%, transparent)", background: "color-mix(in oklab, var(--card) 60%, transparent)", backdropFilter: "blur(8px)" }}
-            >
-              <motion.span animate={{ rotate: [0, 360] }} transition={{ duration: 12, repeat: Infinity, ease: "linear" }} style={{ color: "var(--saffron)" }}>
-                <Flower2 size={14} />
-              </motion.span>
-              <div className="overflow-hidden h-5 w-44">
-                <motion.div
-                  animate={{ y: -shlokaIdx * 20 }}
-                  transition={{ duration: 0.6, ease: "easeInOut" }}
-                  className="flex flex-col"
-                >
-                  {shlokas.map((s) => (
-                    <span key={s} className="h-5 text-sm font-display tracking-wide" style={{ color: "var(--ink)" }}>{s}</span>
-                  ))}
-                </motion.div>
-              </div>
-            </motion.div>
+            {/* Live shloka ticker (isolated so its 3.5s timer only re-renders itself) */}
+            <ShlokaTicker />
 
             <motion.div
               initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65, duration: 0.9 }}
@@ -196,21 +135,22 @@ function Home() {
           >
             <TithiCard />
           </motion.div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.4 }}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 text-xs uppercase tracking-[0.3em] text-muted-foreground"
-        >
-          <motion.div animate={{ y: [0, 8, 0] }} transition={{ duration: 2, repeat: Infinity }}>{t("home.scroll")}</motion.div>
-        </motion.div>
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-xs uppercase tracking-[0.3em] text-muted-foreground">
+          {lite ? (
+            <span>{t("home.scroll")}</span>
+          ) : (
+            <motion.div animate={{ y: [0, 8, 0] }} transition={{ duration: 2, repeat: Infinity }}>{t("home.scroll")}</motion.div>
+          )}
+        </div>
       </section>
 
-      {/* SACRED MARQUEE */}
+      {/* SACRED MARQUEE (transform-only; paused when lite) */}
       <section className="relative py-10 border-y overflow-hidden w-full" style={{ borderColor: "color-mix(in oklab, var(--gold) 20%, transparent)", background: "color-mix(in oklab, var(--card) 40%, transparent)" }}>
         <motion.div
-          animate={{ x: ["0%", "-50%"] }}
-          transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
+          animate={lite ? undefined : { x: ["0%", "-50%"] }}
+          transition={lite ? undefined : { duration: 40, repeat: Infinity, ease: "linear" }}
           className="flex gap-16 whitespace-nowrap font-display text-2xl md:text-3xl"
           style={{ color: "color-mix(in oklab, var(--ink) 60%, transparent)" }}
         >
@@ -226,19 +166,15 @@ function Home() {
 
       {/* TEMPLE INTERIOR — subtle parallax atmosphere */}
       <section className="relative h-[50vh] overflow-hidden my-8 flex items-center justify-center">
-        <motion.div style={{ y: templeY }} className="absolute inset-0 -z-10">
+        <motion.div style={lite ? undefined : { y: templeY }} className="absolute inset-0 -z-10">
           <img src={templeInteriorImg} alt="Serene temple interior" loading="lazy" width={1920} height={1080} className="h-full w-full object-cover" />
           <div className="absolute inset-0" style={{ background: "color-mix(in oklab, var(--background) 65%, transparent)" }} />
           <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, transparent 30%, var(--background) 85%)" }} />
         </motion.div>
         <Reveal>
-          <motion.div
-            animate={{ opacity: [0.3, 0.6, 0.3] }}
-            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-            className="text-center"
-          >
-            <p className="font-display text-4xl md:text-6xl leading-tight select-none" style={{ color: "color-mix(in oklab, var(--gold) 25%, transparent)" }}>ॐ</p>
-          </motion.div>
+          <div className="text-center">
+            <p className="font-display text-4xl md:text-6xl leading-tight select-none" style={{ color: "color-mix(in oklab, var(--gold) 25%, transparent)", opacity: 0.5 }}>ॐ</p>
+          </div>
         </Reveal>
       </section>
 
@@ -247,7 +183,7 @@ function Home() {
         <Reveal>
           <div className="relative">
             <div className="overflow-hidden rounded-2xl shadow-2xl">
-              <motion.img style={{ y: pujaImgY, scale: 1.18 }} src={pujaImg} alt="Puja ritual" loading="lazy" className="w-full aspect-[4/5] object-cover" />
+              <motion.img style={lite ? { scale: 1.18 } : { y: pujaImgY, scale: 1.18 }} src={pujaImg} alt="Puja ritual" loading="lazy" className="w-full aspect-[4/5] object-cover" />
             </div>
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }} whileInView={{ opacity: 1, scale: 1 }}
@@ -345,7 +281,7 @@ function Home() {
 
       {/* PARALLAX QUOTE */}
       <section className="relative h-[60vh] overflow-hidden my-24 flex items-center">
-        <motion.div style={{ y: bellY }} className="absolute inset-0 -z-10">
+        <motion.div style={lite ? undefined : { y: bellY }} className="absolute inset-0 -z-10">
           <img src={bellImg} alt="" className="h-full w-full object-cover" />
           <div className="absolute inset-0" style={{ background: "color-mix(in oklab, var(--background) 75%, transparent)" }} />
         </motion.div>
@@ -359,7 +295,7 @@ function Home() {
         </Reveal>
       </section>
 
-      {/* TESTIMONIALS — infinite scrolling marquee */}
+      {/* TESTIMONIALS — marquee on desktop, swipeable row on mobile/reduced-motion */}
       <section className="py-24 overflow-hidden">
         <div className="mx-auto max-w-7xl px-6">
           <Reveal>
@@ -369,115 +305,43 @@ function Home() {
         </div>
 
         <div className="mt-12 relative">
-          {/* Left fade */}
-          <div className="absolute left-0 top-0 bottom-0 w-24 md:w-48 z-10 pointer-events-none"
-            style={{ background: "linear-gradient(90deg, var(--background), transparent)" }} />
-          {/* Right fade */}
-          <div className="absolute right-0 top-0 bottom-0 w-24 md:w-48 z-10 pointer-events-none"
-            style={{ background: "linear-gradient(-90deg, var(--background), transparent)" }} />
+          {!lite && (
+            <>
+              <div className="absolute left-0 top-0 bottom-0 w-24 md:w-48 z-10 pointer-events-none"
+                style={{ background: "linear-gradient(90deg, var(--background), transparent)" }} />
+              <div className="absolute right-0 top-0 bottom-0 w-24 md:w-48 z-10 pointer-events-none"
+                style={{ background: "linear-gradient(-90deg, var(--background), transparent)" }} />
+            </>
+          )}
 
-          <motion.div
-            className="flex gap-6 w-max cursor-pointer"
-            animate={{ x: [0, -50 * testimonials.length * 3.2] }}
-            transition={{
-              x: {
-                repeat: Infinity,
-                repeatType: "loop",
-                duration: 40,
-                ease: "linear",
-              },
-            }}
-            whileHover={{ animationPlayState: "paused" }}
-          >
-            {/* Triple the testimonials for seamless infinite scroll */}
-            {[...testimonials, ...testimonials, ...testimonials].map((t, i) => (
-              <motion.div
-                key={`${t.name}-${i}`}
-                className="glass-card p-7 w-[340px] md:w-[400px] shrink-0 select-none"
-                whileHover={{ scale: 1.03, y: -4 }}
-                transition={{ type: "spring", stiffness: 250, damping: 18 }}
-              >
-                <div className="flex gap-0.5" style={{ color: "var(--gold)" }}>
-                  {Array.from({ length: 5 }).map((_, j) => (
-                    <motion.div
-                      key={j}
-                      initial={{ opacity: 0, scale: 0 }}
-                      whileInView={{ opacity: 1, scale: 1 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: j * 0.06, duration: 0.3 }}
-                    >
-                      <Star size={14} fill="currentColor" />
-                    </motion.div>
-                  ))}
-                </div>
-                <p className="mt-4 text-sm leading-relaxed text-foreground/85">"{t.quote}"</p>
-                <div className="mt-5 flex items-center gap-3">
-                  <motion.div
-                    className="h-9 w-9 rounded-full flex items-center justify-center font-display text-sm text-white"
-                    style={{ background: "linear-gradient(135deg, var(--saffron), var(--gold))" }}
-                    animate={{ rotate: [0, 5, -5, 0] }}
-                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: i * 0.3 }}
-                  >
-                    {t.name.charAt(0)}
-                  </motion.div>
-                  <div>
-                    <p className="text-sm font-medium">{t.name}</p>
-                    <p className="text-xs text-muted-foreground">{t.role}</p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
+          {lite ? (
+            <div className="flex gap-6 overflow-x-auto px-6 pb-4 snap-x snap-mandatory">
+              {testimonials.map((item, i) => (
+                <TestimonialCard key={i} item={item} />
+              ))}
+            </div>
+          ) : (
+            <motion.div
+              className="flex gap-6 w-max"
+              animate={{ x: ["0%", "-50%"] }}
+              transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
+            >
+              {[...testimonials, ...testimonials].map((item, i) => (
+                <TestimonialCard key={i} item={item} />
+              ))}
+            </motion.div>
+          )}
         </div>
       </section>
 
       {/* CTA */}
       <section className="mx-auto max-w-5xl px-6 py-24 text-center relative overflow-hidden">
+        {/* Static divine glow (replaces the animated orb/wisp/ray field) */}
         <div
           aria-hidden
-          className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[520px] w-[520px] -z-10"
-        >
-          {/* Central divine glow */}
-          <motion.div
-            animate={{ scale: [1, 1.15, 1], opacity: [0.25, 0.45, 0.25] }}
-            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute left-1/2 top-1/2 h-48 w-48 -translate-x-1/2 -translate-y-1/2 rounded-full"
-            style={{
-              background:
-                "radial-gradient(circle, color-mix(in oklab, var(--gold) 40%, transparent), transparent 70%)",
-              filter: "blur(24px)",
-            }}
-          />
-
-          {/* Floating energy orbs */}
-          <EnergyOrb size={6} x={-180} y={-160} color="var(--gold)" duration={14} delay={0} />
-          <EnergyOrb size={4} x={160} y={-140} color="var(--saffron)" duration={18} delay={1.5} />
-          <EnergyOrb size={5} x={-140} y={140} color="var(--gold)" duration={16} delay={3} />
-          <EnergyOrb size={3} x={180} y={120} color="var(--saffron)" duration={20} delay={0.8} />
-          <EnergyOrb size={4} x={0} y={-200} color="var(--gold)" duration={12} delay={2.2} />
-          <EnergyOrb size={3} x={-200} y={40} color="var(--saffron)" duration={22} delay={4} />
-          <EnergyOrb size={5} x={200} y={-40} color="var(--gold)" duration={15} delay={1} />
-          <EnergyOrb size={3} x={80} y={180} color="var(--saffron)" duration={19} delay={2.8} />
-          <EnergyOrb size={4} x={-80} y={190} color="var(--gold)" duration={17} delay={3.5} />
-
-          {/* Wisp trails */}
-          <Wisp x={-120} y={-100} color="var(--gold)" duration={10} delay={0} />
-          <Wisp x={120} y={80} color="var(--saffron)" duration={12} delay={2} />
-          <Wisp x={-80} y={120} color="var(--gold)" duration={9} delay={4} />
-          <Wisp x={100} y={-120} color="var(--saffron)" duration={11} delay={1.5} />
-
-          {/* Radial divine rays */}
-          <motion.div
-            animate={{ rotate: [0, 360] }}
-            transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
-            className="absolute inset-8 rounded-full opacity-10"
-            style={{
-              background:
-                "conic-gradient(from 0deg, transparent, var(--gold), transparent 15%, var(--saffron), transparent 30%, var(--gold), transparent 50%, var(--saffron), transparent 65%, var(--gold), transparent 80%)",
-              filter: "blur(2px)",
-            }}
-          />
-        </div>
+          className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[520px] w-[520px] -z-10 rounded-full blur-3xl"
+          style={{ background: "radial-gradient(circle, color-mix(in oklab, var(--gold) 22%, transparent), transparent 70%)" }}
+        />
         <Reveal>
           <h2 className="font-display text-4xl md:text-6xl text-balance">Ready to invite the divine?</h2>
           <p className="mt-5 text-muted-foreground max-w-xl mx-auto">
@@ -491,6 +355,69 @@ function Home() {
   );
 }
 
+function ShlokaTicker() {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setIdx((i) => (i + 1) % shlokas.length), 3500);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
+      className="mt-6 inline-flex items-center gap-3 rounded-full px-4 py-2 border"
+      style={{ borderColor: "color-mix(in oklab, var(--gold) 30%, transparent)", background: "color-mix(in oklab, var(--card) 60%, transparent)", backdropFilter: "blur(8px)" }}
+    >
+      <span style={{ color: "var(--saffron)" }}>
+        <Flower2 size={14} />
+      </span>
+      <div className="overflow-hidden h-5 w-44">
+        <motion.div
+          animate={{ y: -idx * 20 }}
+          transition={{ duration: 0.6, ease: "easeInOut" }}
+          className="flex flex-col"
+        >
+          {shlokas.map((s) => (
+            <span key={s} className="h-5 text-sm font-display tracking-wide" style={{ color: "var(--ink)" }}>{s}</span>
+          ))}
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+}
+
+function TestimonialCard({ item }) {
+  return (
+    <motion.div
+      className="p-7 w-[340px] md:w-[400px] shrink-0 select-none rounded-2xl border snap-start"
+      style={{
+        background: "color-mix(in oklab, var(--card) 92%, var(--background))",
+        borderColor: "color-mix(in oklab, var(--gold) 22%, transparent)",
+      }}
+      whileHover={{ scale: 1.03, y: -4 }}
+      transition={{ type: "spring", stiffness: 250, damping: 18 }}
+    >
+      <div className="flex gap-0.5" style={{ color: "var(--gold)" }}>
+        {Array.from({ length: 5 }).map((_, j) => (
+          <Star key={j} size={14} fill="currentColor" />
+        ))}
+      </div>
+      <p className="mt-4 text-sm leading-relaxed text-foreground/85">"{item.quote}"</p>
+      <div className="mt-5 flex items-center gap-3">
+        <div
+          className="h-9 w-9 rounded-full flex items-center justify-center font-display text-sm text-white"
+          style={{ background: "linear-gradient(135deg, var(--saffron), var(--gold))" }}
+        >
+          {item.name.charAt(0)}
+        </div>
+        <div>
+          <p className="text-sm font-medium">{item.name}</p>
+          <p className="text-xs text-muted-foreground">{item.role}</p>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 function TithiCard() {
   const [date, setDate] = useState("");
   useEffect(() => {
@@ -499,8 +426,8 @@ function TithiCard() {
   }, []);
   return (
     <div className="glass-card p-7 relative overflow-hidden">
-      <motion.div
-        aria-hidden animate={{ rotate: 360 }} transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
+      <div
+        aria-hidden
         className="absolute -top-20 -right-20 h-56 w-56 rounded-full opacity-20"
         style={{ background: "conic-gradient(from 0deg, var(--gold), transparent, var(--saffron), transparent)" }}
       />
@@ -532,21 +459,14 @@ function Muhurta({ icon: Icon, label, value }) {
   );
 }
 
-function Orb({ className, colorA, colorB, delay = 0 }) {
+function Orb({ className, color }) {
   return (
-    <motion.div
+    <div
       aria-hidden
-      initial={{ opacity: 0 }}
-      animate={{
-        opacity: [0.3, 0.55, 0.3],
-        scale: [1, 1.12, 1],
-        x: [0, 24, -16, 0],
-        y: [0, -20, 12, 0],
-      }}
-      transition={{ duration: 16, repeat: Infinity, ease: "easeInOut", delay }}
       className={`absolute rounded-full -z-10 blur-3xl pointer-events-none ${className}`}
       style={{
-        background: `radial-gradient(circle at 30% 30%, ${colorA}, ${colorB} 70%)`,
+        background: `radial-gradient(circle at 30% 30%, ${color}, transparent 70%)`,
+        opacity: 0.4,
       }}
     />
   );
@@ -558,51 +478,6 @@ function Stat({ n, label }) {
       <div className="font-display text-3xl" style={{ color: "var(--saffron)" }}>{n}</div>
       <div className="text-xs uppercase tracking-widest mt-1">{label}</div>
     </div>
-  );
-}
-
-function EnergyOrb({ size, x, y, color, duration, delay }) {
-  return (
-    <motion.div
-      aria-hidden
-      animate={{
-        y: [y, y - 30, y + 20, y - 10, y],
-        x: [x, x + 20, x - 15, x + 10, x],
-        opacity: [0.2, 0.7, 0.5, 0.8, 0.2],
-        scale: [1, 1.3, 0.9, 1.2, 1],
-      }}
-      transition={{ duration, repeat: Infinity, ease: "easeInOut", delay }}
-      className="absolute left-1/2 top-1/2 rounded-full"
-      style={{
-        width: `${size * 4}px`,
-        height: `${size * 4}px`,
-        background: `radial-gradient(circle, ${color}, transparent 70%)`,
-        filter: `blur(${size}px)`,
-        boxShadow: `0 0 ${size * 6}px ${size}px color-mix(in oklab, ${color} 40%, transparent)`,
-      }}
-    />
-  );
-}
-
-function Wisp({ x, y, color, duration, delay }) {
-  return (
-    <motion.div
-      aria-hidden
-      animate={{
-        y: [y, y - 60, y + 40, y],
-        x: [x, x + 30, x - 20, x],
-        opacity: [0, 0.4, 0.2, 0],
-        scale: [0.6, 1.2, 0.8, 0.5],
-      }}
-      transition={{ duration, repeat: Infinity, ease: "easeInOut", delay }}
-      className="absolute left-1/2 top-1/2 rounded-full"
-      style={{
-        width: "80px",
-        height: "80px",
-        background: `radial-gradient(ellipse at center, color-mix(in oklab, ${color} 25%, transparent), transparent 70%)`,
-        filter: "blur(12px)",
-      }}
-    />
   );
 }
 

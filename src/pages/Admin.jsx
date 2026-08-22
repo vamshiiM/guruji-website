@@ -47,6 +47,11 @@ const T = {
 const fontStack =
   '"Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
+// Applied to any text container inside a grid/flex row so long unbroken strings
+// (emails, service names, URLs) wrap instead of blowing out their track and
+// shoving sibling columns — the root cause of the mobile layout shifts.
+const wrapText = { minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-word" };
+
 // Admin uses inline styles (no Tailwind), so responsiveness is driven by this
 // JS breakpoint hook rather than CSS media queries.
 function useIsMobile(breakpoint = 860) {
@@ -114,9 +119,15 @@ function AdminPage() {
     };
   }, [loading, isAdmin]);
 
+  // Service name → price, built once per services change, so booking amounts are
+  // O(1) lookups instead of an O(services) .find() per booking row / per stat.
+  const priceMap = useMemo(
+    () => new Map(services.map((s) => [s.name, s.price])),
+    [services]
+  );
   const stats = useMemo(
-    () => computeStats(allBookings, services),
-    [allBookings, services]
+    () => computeStats(allBookings, priceMap),
+    [allBookings, priceMap]
   );
   const filtered = useMemo(
     () =>
@@ -178,32 +189,35 @@ function AdminPage() {
       <main
         style={{
           padding: isMobile ? "20px 16px 64px" : "40px 48px 80px",
-          maxWidth: 1280,
+          maxWidth: isMobile ? "100%" : 1280,
           width: "100%",
           minWidth: 0,
+          overflowX: "hidden",
         }}
       >
-        <TopBar tab={tab} />
-        {tab === "overview" && <Overview stats={stats} bookings={allBookings} />}
+        <TopBar tab={tab} isMobile={isMobile} />
+        {tab === "overview" && <Overview stats={stats} bookings={allBookings} isMobile={isMobile} />}
         {tab === "bookings" && (
           <Bookings
             bookings={filtered}
             total={allBookings.length}
-            services={services}
+            priceMap={priceMap}
             stats={stats}
             query={query}
             setQuery={setQuery}
             updateStatus={updateStatus}
             removeBooking={removeBooking}
+            isMobile={isMobile}
           />
         )}
-        {tab === "users" && <UsersList users={users} />}
-        {tab === "messages" && <MessagesList messages={messages} />}
+        {tab === "users" && <UsersList users={users} isMobile={isMobile} />}
+        {tab === "messages" && <MessagesList messages={messages} isMobile={isMobile} />}
         {tab === "services" && (
           <ServicesList
             services={services}
             onAdd={addService}
             onRemove={removeService}
+            isMobile={isMobile}
           />
         )}
       </main>
@@ -212,26 +226,21 @@ function AdminPage() {
 }
 
 // Amount (₹) for a booking = current price of its service; 0 if the service no
-// longer exists (bookings store the service as a free-text name).
-function serviceAmount(services, name) {
-  return services.find((s) => s.name === name)?.price ?? 0;
-}
-
-function computeStats(bookings, services) {
+// longer exists (bookings store the service as a free-text name). `priceMap` is
+// a Map(serviceName → price) so each lookup is O(1).
+function computeStats(bookings, priceMap) {
   const total = bookings.length;
   const confirmed = bookings.filter((b) => b.status === "Confirmed").length;
   const pending = bookings.filter((b) => b.status?.includes("Pending")).length;
   const cancelled = bookings.filter((b) => b.status === "Cancelled").length;
   const users = new Set(bookings.map((b) => b.email).filter(Boolean)).size;
+  const amt = (b) => priceMap.get(b.service) ?? 0;
   // Revenue = confirmed bookings only. Bookings cost = every booking regardless
   // of status (pending + confirmed + cancelled). Both recompute live via useMemo.
   const revenue = bookings
     .filter((b) => b.status === "Confirmed")
-    .reduce((sum, b) => sum + serviceAmount(services, b.service), 0);
-  const bookingsCost = bookings.reduce(
-    (sum, b) => sum + serviceAmount(services, b.service),
-    0
-  );
+    .reduce((sum, b) => sum + amt(b), 0);
+  const bookingsCost = bookings.reduce((sum, b) => sum + amt(b), 0);
   return { total, confirmed, pending, cancelled, users, revenue, bookingsCost };
 }
 
@@ -685,9 +694,8 @@ function MobileTopNav({ tab, setTab, logout, user, open, setOpen }) {
 }
 
 /* ---------------- Top bar ---------------- */
-function TopBar({ tab }) {
+function TopBar({ tab, isMobile }) {
   const { t, i18n } = useTranslation();
-  const isMobile = useIsMobile();
   const titles = {
     overview: t("admin.nav.overview"),
     bookings: t("admin.nav.bookings"),
@@ -726,9 +734,8 @@ function TopBar({ tab }) {
 
 
 /* ---------------- Overview ---------------- */
-function Overview({ stats, bookings }) {
+function Overview({ stats, bookings, isMobile }) {
   const { t } = useTranslation();
-  const isMobile = useIsMobile();
   const recent = bookings.slice(0, 6);
   return (
     <div>
@@ -736,16 +743,18 @@ function Overview({ stats, bookings }) {
         style={{
           display: "grid",
           gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
-          gap: 0,
+          // 1px gap over a line-colored background renders clean hairline
+          // separators that adapt to a 2x2 or 1x4 layout without dangling borders.
+          gap: 1,
           border: `1px solid ${T.line}`,
-          background: T.surface,
+          background: T.line,
           marginBottom: isMobile ? 28 : 40,
         }}
       >
-        <Metric label={t("admin.metrics.total")} value={stats.total} />
-        <Metric label={t("admin.metrics.confirmed")} value={stats.confirmed} />
-        <Metric label={t("admin.metrics.devotees")} value={stats.users} />
-        <Metric label={t("admin.metrics.revenue")} value={`₹${(stats.revenue / 1000).toFixed(1)}k`} />
+        <Metric label={t("admin.metrics.total")} value={stats.total} isMobile={isMobile} />
+        <Metric label={t("admin.metrics.confirmed")} value={stats.confirmed} isMobile={isMobile} />
+        <Metric label={t("admin.metrics.devotees")} value={stats.users} isMobile={isMobile} />
+        <Metric label={t("admin.metrics.revenue")} value={`₹${(stats.revenue / 1000).toFixed(1)}k`} isMobile={isMobile} />
       </section>
 
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.4fr 1fr", gap: isMobile ? 20 : 32 }}>
@@ -790,18 +799,19 @@ function Overview({ stats, bookings }) {
   );
 }
 
-function Metric({ label, value }) {
+function Metric({ label, value, isMobile }) {
   return (
     <div
       style={{
-        padding: "22px 24px",
-        borderRight: `1px solid ${T.line}`,
+        padding: isMobile ? "16px 16px" : "22px 24px",
+        background: T.surface,
+        minWidth: 0,
       }}
     >
-      <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+      <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.08em", textTransform: "uppercase", ...wrapText }}>
         {label}
       </div>
-      <div style={{ fontFamily: fontStack, fontSize: 32, fontWeight: 600, letterSpacing: "-0.02em", marginTop: 12 }}>
+      <div style={{ fontFamily: fontStack, fontSize: isMobile ? 26 : 32, fontWeight: 600, letterSpacing: "-0.02em", marginTop: isMobile ? 8 : 12, ...wrapText }}>
         {value}
       </div>
     </div>
@@ -846,9 +856,8 @@ function SummaryCard({ label, value, caption, accent }) {
 }
 
 /* ---------------- Bookings ---------------- */
-function Bookings({ bookings, total, services, stats, query, setQuery, updateStatus, removeBooking }) {
+function Bookings({ bookings, total, priceMap, stats, query, setQuery, updateStatus, removeBooking, isMobile }) {
   const { t } = useTranslation();
-  const isMobile = useIsMobile();
   const money = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
   const headers = [
     t("admin.bookings.cols.devotee"),
@@ -927,6 +936,19 @@ function Bookings({ bookings, total, services, stats, query, setQuery, updateSta
 
       {bookings.length === 0 ? (
         <Block><Empty text={t("admin.bookings.empty")} /></Block>
+      ) : isMobile ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {bookings.map((b) => (
+            <BookingCard
+              key={b.id}
+              b={b}
+              amount={priceMap.get(b.service) ?? 0}
+              t={t}
+              updateStatus={updateStatus}
+              removeBooking={removeBooking}
+            />
+          ))}
+        </div>
       ) : (
         <div style={{ background: T.surface, border: `1px solid ${T.line}`, overflowX: "auto" }}>
           <table style={{ width: "100%", minWidth: 680, borderCollapse: "collapse", fontSize: 13 }}>
@@ -952,7 +974,9 @@ function Bookings({ bookings, total, services, stats, query, setQuery, updateSta
               </tr>
             </thead>
             <tbody>
-              {bookings.map((b) => (
+              {bookings.map((b) => {
+                const amount = priceMap.get(b.service) ?? 0;
+                return (
                 <tr key={b.id} style={{ borderBottom: `1px solid ${T.lineSoft}` }}>
                   <td style={tdStyle}>
                     <div style={{ fontWeight: 500 }}>{b.name || "—"}</div>
@@ -961,9 +985,7 @@ function Bookings({ bookings, total, services, stats, query, setQuery, updateSta
                   <td style={{ ...tdStyle, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{b.phone || "—"}</td>
                   <td style={tdStyle}>{b.service || "—"}</td>
                   <td style={{ ...tdStyle, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: 500 }}>
-                    {serviceAmount(services, b.service)
-                      ? `₹${serviceAmount(services, b.service).toLocaleString("en-IN")}`
-                      : "—"}
+                    {amount ? `₹${amount.toLocaleString("en-IN")}` : "—"}
                   </td>
                   <td style={tdStyle}>
                     {b.date || new Date(b.createdAt).toLocaleDateString()}
@@ -983,11 +1005,53 @@ function Bookings({ bookings, total, services, stats, query, setQuery, updateSta
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+/* Mobile equivalent of a bookings table row. */
+function BookingCard({ b, amount, t, updateStatus, removeBooking }) {
+  const row = (label, value) => (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 6 }}>
+      <span style={{ fontSize: 11, color: T.muted, letterSpacing: "0.06em", textTransform: "uppercase", flexShrink: 0 }}>
+        {label}
+      </span>
+      <span style={{ fontSize: 13, textAlign: "right", ...wrapText }}>{value}</span>
+    </div>
+  );
+  return (
+    <div style={{ background: T.surface, border: `1px solid ${T.line}`, padding: 16 }}>
+      <div style={{ ...wrapText }}>
+        <div style={{ fontSize: 14, fontWeight: 500 }}>{b.name || "—"}</div>
+        <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{b.email}</div>
+      </div>
+      {row(t("admin.bookings.cols.phone"), b.phone || "—")}
+      {row(t("admin.bookings.cols.service"), b.service || "—")}
+      {row(
+        t("admin.bookings.cols.amount"),
+        amount ? `₹${amount.toLocaleString("en-IN")}` : "—"
+      )}
+      {row(t("admin.bookings.cols.date"), b.date || new Date(b.createdAt).toLocaleDateString())}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.lineSoft}` }}>
+        <StatusPill status={b.status} />
+        <div style={{ display: "inline-flex", gap: 4 }}>
+          <RowBtn title={t("admin.bookings.actions.confirm")} onClick={() => updateStatus(b.id, "Confirmed")}>
+            <Check size={13} strokeWidth={1.8} />
+          </RowBtn>
+          <RowBtn title={t("admin.bookings.actions.cancel")} onClick={() => updateStatus(b.id, "Cancelled")}>
+            <X size={13} strokeWidth={1.8} />
+          </RowBtn>
+          <RowBtn title={t("admin.bookings.actions.delete")} onClick={() => removeBooking(b.id)}>
+            <Trash2 size={13} strokeWidth={1.6} />
+          </RowBtn>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1017,11 +1081,63 @@ function RowBtn({ children, ...rest }) {
 /* ---------------- Users ---------------- */
 // Real registered accounts from GET /api/users (serializeUserAdmin):
 // { id, name, email, role, joinedAt, bookingsCount }.
-function UsersList({ users }) {
+function UsersList({ users, isMobile }) {
   const { t } = useTranslation();
 
   if (users.length === 0)
     return <Block><Empty text={t("admin.users.empty")} /></Block>;
+
+  const avatar = (u) => (
+    <div
+      style={{
+        width: 36,
+        height: 36,
+        flexShrink: 0,
+        borderRadius: "50%",
+        background: T.lineSoft,
+        display: "grid",
+        placeItems: "center",
+        fontSize: 13,
+        fontWeight: 500,
+        color: T.ink,
+        fontFamily: fontStack,
+      }}
+    >
+      {(u.name || u.email)[0].toUpperCase()}
+    </div>
+  );
+  const identity = (u) => (
+    <div style={wrapText}>
+      <div style={{ fontSize: 14, fontWeight: 500, ...wrapText }}>
+        {u.name || u.email.split("@")[0]}
+      </div>
+      <div style={{ fontSize: 12, color: T.muted, marginTop: 2, ...wrapText }}>{u.email}</div>
+      {u.phone && (
+        <div style={{ fontSize: 12, color: T.muted, marginTop: 2, ...wrapText }}>{u.phone}</div>
+      )}
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {users.map((u) => (
+          <div key={u.id} style={{ background: T.surface, border: `1px solid ${T.line}`, padding: 16 }}>
+            <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+              {avatar(u)}
+              {identity(u)}
+            </div>
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.lineSoft}`, fontSize: 12, color: T.muted }}>
+              <div>{t("admin.users.bookings", { count: u.bookingsCount })}</div>
+              <div style={{ marginTop: 2 }}>
+                {t("admin.users.joined")} {new Date(u.joinedAt).toLocaleDateString()}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div style={{ background: T.surface, border: `1px solid ${T.line}` }}>
@@ -1037,32 +1153,9 @@ function UsersList({ users }) {
             borderTop: i === 0 ? "none" : `1px solid ${T.lineSoft}`,
           }}
         >
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: "50%",
-              background: T.lineSoft,
-              display: "grid",
-              placeItems: "center",
-              fontSize: 13,
-              fontWeight: 500,
-              color: T.ink,
-              fontFamily: fontStack,
-            }}
-          >
-            {(u.name || u.email)[0].toUpperCase()}
-          </div>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 500 }}>
-              {u.name || u.email.split("@")[0]}
-            </div>
-            <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{u.email}</div>
-            {u.phone && (
-              <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{u.phone}</div>
-            )}
-          </div>
-          <div style={{ textAlign: "right", fontSize: 12, color: T.muted }}>
+          {avatar(u)}
+          {identity(u)}
+          <div style={{ textAlign: "right", fontSize: 12, color: T.muted, flexShrink: 0 }}>
             <div>{t("admin.users.bookings", { count: u.bookingsCount })}</div>
             <div style={{ marginTop: 2 }}>
               {t("admin.users.joined")} {new Date(u.joinedAt).toLocaleDateString()}
@@ -1077,21 +1170,28 @@ function UsersList({ users }) {
 /* ---------------- Messages ---------------- */
 // Contact-form submissions from GET /api/contact (serializeContactMessage):
 // { id, name, email, message, createdAt }.
-function MessagesList({ messages }) {
+function MessagesList({ messages, isMobile }) {
   const { t } = useTranslation();
 
   if (messages.length === 0)
     return <Block><Empty text={t("admin.messages.empty")} /></Block>;
 
+  // On mobile each message is its own bordered card; on desktop they're rows in
+  // one bordered panel. Same inner markup either way.
+  const wrapper = isMobile
+    ? { display: "flex", flexDirection: "column", gap: 12 }
+    : { background: T.surface, border: `1px solid ${T.line}` };
+
   return (
-    <div style={{ background: T.surface, border: `1px solid ${T.line}` }}>
+    <div style={wrapper}>
       {messages.map((m, i) => (
         <div
           key={m.id}
-          style={{
-            padding: "18px 22px",
-            borderTop: i === 0 ? "none" : `1px solid ${T.lineSoft}`,
-          }}
+          style={
+            isMobile
+              ? { background: T.surface, border: `1px solid ${T.line}`, padding: 16 }
+              : { padding: "18px 22px", borderTop: i === 0 ? "none" : `1px solid ${T.lineSoft}` }
+          }
         >
           <div
             style={{
@@ -1102,15 +1202,15 @@ function MessagesList({ messages }) {
               flexWrap: "wrap",
             }}
           >
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 500 }}>{m.name}</div>
-              <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{m.email}</div>
+            <div style={wrapText}>
+              <div style={{ fontSize: 14, fontWeight: 500, ...wrapText }}>{m.name}</div>
+              <div style={{ fontSize: 12, color: T.muted, marginTop: 2, ...wrapText }}>{m.email}</div>
             </div>
             <div style={{ fontSize: 12, color: T.muted, whiteSpace: "nowrap" }}>
               {new Date(m.createdAt).toLocaleDateString()}
             </div>
           </div>
-          <p style={{ margin: "10px 0 0", fontSize: 13, color: T.ink2, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+          <p style={{ margin: "10px 0 0", fontSize: 13, color: T.ink2, lineHeight: 1.6, whiteSpace: "pre-wrap", overflowWrap: "anywhere", wordBreak: "break-word" }}>
             {m.message}
           </p>
         </div>
@@ -1120,9 +1220,8 @@ function MessagesList({ messages }) {
 }
 
 /* ---------------- Services ---------------- */
-function ServicesList({ services, onAdd, onRemove }) {
+function ServicesList({ services, onAdd, onRemove, isMobile }) {
   const { t } = useTranslation();
-  const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", price: "", duration: "", description: "", icon: "" });
   const [err, setErr] = useState("");
@@ -1245,11 +1344,14 @@ function ServicesList({ services, onAdd, onRemove }) {
               cursor: "pointer",
               borderRadius: 2,
               fontFamily: fontStack,
+              // On mobile (single column) the description should read above the
+              // submit button; `order` reflows grid items without changing DOM.
+              order: isMobile ? 3 : 0,
             }}
           >
             {t("admin.services.add")}
           </button>
-          <div style={{ gridColumn: "1 / -1" }}>
+          <div style={{ gridColumn: "1 / -1", order: isMobile ? 2 : 0 }}>
             <Field label={t("admin.services.description")}>
               <textarea
                 value={form.description}
@@ -1261,37 +1363,72 @@ function ServicesList({ services, onAdd, onRemove }) {
             </Field>
           </div>
           {err && (
-            <div style={{ gridColumn: "1 / -1", fontSize: 12, color: T.bad, marginTop: -4 }}>
+            <div style={{ gridColumn: "1 / -1", fontSize: 12, color: T.bad, marginTop: -4, order: isMobile ? 4 : 0 }}>
               {err}
             </div>
           )}
         </motion.form>
       )}
 
-      <div style={{ background: T.surface, border: `1px solid ${T.line}`, overflowX: isMobile ? "auto" : "visible" }}>
-        {services.length === 0 ? (
+      {services.length === 0 ? (
+        <div style={{ background: T.surface, border: `1px solid ${T.line}` }}>
           <Empty text={t("admin.services.empty")} />
-        ) : (
-          services.map((s, i) => (
+        </div>
+      ) : isMobile ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {services.map((s, i) => {
+            const del = (
+              <ServiceDeleteBtn s={s} onRemove={onRemove} t={t} />
+            );
+            return (
+              <div key={s.id || s.name} style={{ background: T.surface, border: `1px solid ${T.line}`, padding: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                  <div style={wrapText}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                      <span style={{ fontSize: 11, color: T.muted, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      <span style={{ fontFamily: fontStack, fontSize: 17, fontWeight: 500, ...wrapText }}>{s.name}</span>
+                    </div>
+                    {s.description && (
+                      <div style={{ fontSize: 12, color: T.muted, marginTop: 4, fontFamily: fontStack, ...wrapText }}>
+                        {s.description}
+                      </div>
+                    )}
+                  </div>
+                  {del}
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.lineSoft}` }}>
+                  <span style={{ fontSize: 12, color: T.muted }}>{s.duration || "—"}</span>
+                  <span style={{ fontSize: 15, fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>
+                    ₹{Number(s.price).toLocaleString("en-IN")}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{ background: T.surface, border: `1px solid ${T.line}` }}>
+          {services.map((s, i) => (
             <div
               key={s.id || s.name}
               style={{
                 display: "grid",
                 gridTemplateColumns: "30px 1fr 110px 130px 32px",
-                minWidth: isMobile ? 460 : "auto",
                 alignItems: "center",
                 gap: 20,
-                padding: isMobile ? "18px 18px" : "20px 24px",
+                padding: "20px 24px",
                 borderTop: i === 0 ? "none" : `1px solid ${T.lineSoft}`,
               }}
             >
               <div style={{ fontSize: 11, color: T.muted, fontVariantNumeric: "tabular-nums" }}>
                 {String(i + 1).padStart(2, "0")}
               </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontFamily: fontStack, fontSize: 18, fontWeight: 500 }}>{s.name}</div>
+              <div style={wrapText}>
+                <div style={{ fontFamily: fontStack, fontSize: 18, fontWeight: 500, ...wrapText }}>{s.name}</div>
                 {s.description && (
-                  <div style={{ fontSize: 12, color: T.muted, marginTop: 2, fontFamily: fontStack }}>
+                  <div style={{ fontSize: 12, color: T.muted, marginTop: 2, fontFamily: fontStack, ...wrapText }}>
                     {s.description}
                   </div>
                 )}
@@ -1300,34 +1437,41 @@ function ServicesList({ services, onAdd, onRemove }) {
               <div style={{ fontSize: 14, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
                 ₹{Number(s.price).toLocaleString("en-IN")}
               </div>
-              <button
-                onClick={() => {
-                  if (confirm(t("admin.services.confirmRemove", { name: s.name }))) {
-                    Promise.resolve(onRemove(s.id)).catch((e) =>
-                      toast.error(e?.message || "Could not remove service.")
-                    );
-                  }
-                }}
-                title={t("admin.bookings.actions.delete")}
-                style={{
-                  width: 26,
-                  height: 26,
-                  border: `1px solid ${T.line}`,
-                  background: T.surface,
-                  cursor: "pointer",
-                  color: T.ink2,
-                  display: "grid",
-                  placeItems: "center",
-                  justifySelf: "end",
-                }}
-              >
-                <Trash2 size={13} strokeWidth={1.6} />
-              </button>
+              <ServiceDeleteBtn s={s} onRemove={onRemove} t={t} />
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
+  );
+}
+
+function ServiceDeleteBtn({ s, onRemove, t }) {
+  return (
+    <button
+      onClick={() => {
+        if (confirm(t("admin.services.confirmRemove", { name: s.name }))) {
+          Promise.resolve(onRemove(s.id)).catch((e) =>
+            toast.error(e?.message || "Could not remove service.")
+          );
+        }
+      }}
+      title={t("admin.bookings.actions.delete")}
+      style={{
+        width: 26,
+        height: 26,
+        flexShrink: 0,
+        border: `1px solid ${T.line}`,
+        background: T.surface,
+        cursor: "pointer",
+        color: T.ink2,
+        display: "grid",
+        placeItems: "center",
+        justifySelf: "end",
+      }}
+    >
+      <Trash2 size={13} strokeWidth={1.6} />
+    </button>
   );
 }
 
