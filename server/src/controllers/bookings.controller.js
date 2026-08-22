@@ -1,7 +1,7 @@
 import { prisma } from "../db.js";
 import { AppError, asyncHandler } from "../lib/errors.js";
 import { serializeBooking } from "../lib/serializers.js";
-import { sendBookingNotification, sendUserBookingConfirmation } from "../lib/email.js";
+import { sendBookingNotification, sendUserBookingConfirmation, sendBookingStatusUpdate } from "../lib/email.js";
 
 const STATUSES = ["Confirmed", "Pending confirmation", "Cancelled"];
 
@@ -88,6 +88,12 @@ export const updateBooking = asyncHandler(async (req, res) => {
     data: { status },
   });
   res.json({ booking: serializeBooking(booking) });
+
+  // Notify the devotee only on a real transition to a decision, so re-issuing
+  // the same status never double-emails. Fire-and-forget; never blocks response.
+  if (status !== existing.status && (status === "Confirmed" || status === "Cancelled")) {
+    sendBookingStatusUpdate(booking);
+  }
 });
 
 export const deleteBooking = asyncHandler(async (req, res) => {
