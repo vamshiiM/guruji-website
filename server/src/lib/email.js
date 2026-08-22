@@ -5,9 +5,12 @@ import { env } from "../config/env.js";
 // app works end-to-end without email credentials.
 const resend = env.resendApiKey ? new Resend(env.resendApiKey) : null;
 
+// `to`/`replyTo` may be a string or an array (multiple admin recipients).
+const hasRecipient = (v) => (Array.isArray(v) ? v.length > 0 : !!v);
+
 async function send({ to, subject, html, replyTo }) {
-  if (!resend || !to) {
-    console.log(`[email:skipped] would send "${subject}" to ${to || "(no recipient)"}`);
+  if (!resend || !hasRecipient(to)) {
+    console.log(`[email:skipped] would send "${subject}" (no recipient or no API key)`);
     return;
   }
   try {
@@ -16,7 +19,7 @@ async function send({ to, subject, html, replyTo }) {
       to,
       subject,
       html,
-      ...(replyTo ? { replyTo } : {}),
+      ...(hasRecipient(replyTo) ? { replyTo } : {}),
     });
   } catch (e) {
     // Never let an email failure break the request that triggered it.
@@ -24,8 +27,15 @@ async function send({ to, subject, html, replyTo }) {
   }
 }
 
+// Escape user-supplied text before interpolating into HTML email bodies, so a
+// malicious name/message can't inject links/markup into a recipient's inbox.
+const escapeHtml = (v) =>
+  String(v ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+  );
+
 const row = (label, value) =>
-  value ? `<p style="margin:4px 0"><strong>${label}:</strong> ${value}</p>` : "";
+  value ? `<p style="margin:4px 0"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</p>` : "";
 
 export function sendBookingNotification(b) {
   const html = `
@@ -40,7 +50,7 @@ export function sendBookingNotification(b) {
     ${row("Notes", b.notes)}
   `;
   // Reply-to the devotee so the admin can respond to them directly.
-  return send({ to: env.notifyEmail, replyTo: b.email, subject: `New booking: ${b.service} — ${b.name}`, html });
+  return send({ to: env.notifyEmails, replyTo: b.email, subject: `New booking: ${b.service} — ${b.name}`, html });
 }
 
 // Confirmation sent to the devotee who booked. Reply-to the business inbox so
@@ -50,7 +60,7 @@ export function sendUserBookingConfirmation(b) {
   const html = `
     <div style="font-family:Arial,Helvetica,sans-serif;color:#2a2a2a;max-width:540px;margin:0 auto">
       <h2 style="color:#b8860b;margin:0 0 8px">Your booking is received 🙏</h2>
-      <p style="margin:0 0 12px">Namaste ${b.name || "there"},</p>
+      <p style="margin:0 0 12px">Namaste ${escapeHtml(b.name) || "there"},</p>
       <p style="margin:0 0 16px;line-height:1.6">
         Thank you for booking with <strong>Divya Seva</strong>. We've received your request and
         Pandit&nbsp;Ji will confirm the details with you shortly.
@@ -67,7 +77,7 @@ export function sendUserBookingConfirmation(b) {
       <p style="margin:20px 0 0;color:#7a6a4f">With devotion,<br/>Divya Seva</p>
     </div>
   `;
-  return send({ to: b.email, replyTo: env.notifyEmail, subject: `Booking received — ${b.service}`, html });
+  return send({ to: b.email, replyTo: env.notifyEmails, subject: `Booking received — ${b.service}`, html });
 }
 
 // Sent to the devotee when the admin confirms or cancels their booking.
@@ -102,14 +112,14 @@ export function sendBookingStatusUpdate(b) {
   const html = `
     <div style="font-family:Arial,Helvetica,sans-serif;color:#2a2a2a;max-width:540px;margin:0 auto">
       <h2 style="color:#b8860b;margin:0 0 8px">${b.status === "Confirmed" ? "Booking confirmed 🙏" : "Booking cancelled"}</h2>
-      <p style="margin:0 0 12px">Namaste ${b.name || "there"},</p>
+      <p style="margin:0 0 12px">Namaste ${escapeHtml(b.name) || "there"},</p>
       <p style="margin:0 0 16px;line-height:1.6">${intro}</p>
       ${details}
       <p style="margin:0 0 16px;line-height:1.6">${outro}</p>
       <p style="margin:20px 0 0;color:#7a6a4f">With devotion,<br/>Divya Seva</p>
     </div>
   `;
-  return send({ to: b.email, replyTo: env.notifyEmail, subject, html });
+  return send({ to: b.email, replyTo: env.notifyEmails, subject, html });
 }
 
 export function sendContactNotification(m) {
@@ -118,7 +128,7 @@ export function sendContactNotification(m) {
     ${row("Name", m.name)}
     ${row("Email", m.email)}
     <p style="margin:12px 0 4px"><strong>Message:</strong></p>
-    <p style="white-space:pre-wrap">${m.message}</p>
+    <p style="white-space:pre-wrap">${escapeHtml(m.message)}</p>
   `;
-  return send({ to: env.notifyEmail, replyTo: m.email, subject: `New enquiry from ${m.name}`, html });
+  return send({ to: env.notifyEmails, replyTo: m.email, subject: `New enquiry from ${m.name}`, html });
 }

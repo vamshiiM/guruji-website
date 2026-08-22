@@ -1,6 +1,7 @@
 import { prisma } from "../db.js";
 import { AppError, asyncHandler } from "../lib/errors.js";
 import { serializeBooking } from "../lib/serializers.js";
+import { cappedString } from "../lib/validate.js";
 import { sendBookingNotification, sendUserBookingConfirmation, sendBookingStatusUpdate } from "../lib/email.js";
 
 const STATUSES = ["Confirmed", "Pending confirmation", "Cancelled"];
@@ -33,8 +34,14 @@ export const createBooking = asyncHandler(async (req, res) => {
     throw new AppError("VALIDATION", "Service, date, name and phone are required.", 400);
   }
 
+  // Bound all free-text fields so no single field can be an oversized blob.
+  const safeName = cappedString(name, { field: "Name", max: 100, required: true });
+  const safeService = cappedString(service, { field: "Service", max: 120, required: true });
+  const safeAddress = cappedString(address, { field: "Address", max: 300 });
+  const safeNotes = cappedString(notes, { field: "Notes", max: 1000 });
+
   // Phone must contain at least 7 digits (letters/garbage rejected).
-  const cleanPhone = phone.trim();
+  const cleanPhone = cappedString(phone, { field: "Phone", max: 30, required: true });
   if ((cleanPhone.match(/\d/g) || []).length < 7) {
     throw new AppError("VALIDATION", "Enter a valid phone number.", 400);
   }
@@ -58,13 +65,13 @@ export const createBooking = asyncHandler(async (req, res) => {
     data: {
       userId: req.user.id,
       email: req.user.email, // scope to the signed-in user, like the old addBooking
-      name: name.trim(),
+      name: safeName,
       phone: cleanPhone,
-      service: service.trim(),
+      service: safeService,
       date: cleanDate,
       time: cleanTime,
-      address: address?.trim() || null,
-      notes: notes?.trim() || null,
+      address: safeAddress || null,
+      notes: safeNotes || null,
       status: "Pending confirmation",
     },
   });
