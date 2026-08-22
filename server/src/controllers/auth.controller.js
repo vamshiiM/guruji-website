@@ -1,8 +1,9 @@
 import { prisma } from "../db.js";
-import { hashPassword, verifyPassword } from "../lib/password.js";
+import { hashPassword, verifyPassword, DUMMY_HASH } from "../lib/password.js";
 import { signToken, verifyToken } from "../lib/jwt.js";
 import { COOKIE_NAME, setCookieOptions, clearCookieOptions } from "../lib/cookies.js";
 import { AppError, asyncHandler } from "../lib/errors.js";
+import { cappedString } from "../lib/validate.js";
 import { serializeUser } from "../lib/serializers.js";
 import { env } from "../config/env.js";
 
@@ -16,7 +17,13 @@ export const signup = asyncHandler(async (req, res) => {
   if (!name?.trim() || !email?.trim() || !password || password.length < 6) {
     throw new AppError("VALIDATION", "Name, email and a 6+ character password are required.", 400);
   }
-  const normalized = email.trim().toLowerCase();
+  // Bound field sizes (password too — bcrypt on a huge string is a CPU DoS).
+  const safeName = cappedString(name, { field: "Name", max: 100, required: true });
+  const safeEmail = cappedString(email, { field: "Email", max: 254, required: true });
+  if (password.length > 200) {
+    throw new AppError("VALIDATION", "Password is too long (max 200 characters).", 400);
+  }
+  const normalized = safeEmail.toLowerCase();
 
   if (env.reservedAdminEmails.includes(normalized)) {
     throw new AppError("RESERVED_EMAIL", "This email is reserved.", 409);
@@ -28,7 +35,7 @@ export const signup = asyncHandler(async (req, res) => {
 
   const user = await prisma.user.create({
     data: {
-      name: name.trim(),
+      name: safeName,
       email: normalized,
       passwordHash: await hashPassword(password),
       role: "USER",
@@ -46,13 +53,13 @@ export const login = asyncHandler(async (req, res) => {
   }
   const normalized = email.trim().toLowerCase();
   const user = await prisma.user.findUnique({ where: { email: normalized } });
-  const ok = user && (await verifyPassword(password, user.passwordHash));
+  // Always run bcrypt (against a dummy hash if no user) so response time doesn't
+  // reveal whether the email exists (timing-based user enumeration).
+  const ok = (await verifyPassword(password, user ? user.passwordHash : DUMMY_HASH)) && !!user;
 
   if (!ok) {
-    // Preserve the old client's distinct "invalid admin credentials" message.
-    const looksAdmin =
-      (user && user.role === "ADMIN") || env.reservedAdminEmails.includes(normalized);
-    if (looksAdmin) throw new AppError("BAD_ADMIN", "Invalid admin credentials", 401);
+    // One generic error for every failure — never disclose whether the email
+    // exists or is an admin account (account enumeration defense).
     throw new AppError("BAD_CREDENTIALS", "Invalid email or password", 401);
   }
 

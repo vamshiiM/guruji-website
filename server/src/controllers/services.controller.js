@@ -1,5 +1,6 @@
 import { prisma } from "../db.js";
 import { AppError, asyncHandler } from "../lib/errors.js";
+import { cappedString } from "../lib/validate.js";
 import { serializeService } from "../lib/serializers.js";
 
 // Public: the booking form and services page read this.
@@ -10,7 +11,10 @@ export const listServices = asyncHandler(async (_req, res) => {
 
 export const addService = asyncHandler(async (req, res) => {
   const { name, price, duration, description, icon } = req.body || {};
-  if (!name?.trim()) throw new AppError("VALIDATION", "Service name is required.", 400);
+  const safeName = cappedString(name, { field: "Service name", max: 120, required: true });
+  const safeDuration = cappedString(duration, { field: "Duration", max: 40 });
+  const safeDescription = cappedString(description, { field: "Description", max: 500 });
+  const safeIcon = cappedString(icon, { field: "Icon", max: 40 });
 
   const priceNum = Number(price);
   if (!Number.isFinite(priceNum) || priceNum < 0) {
@@ -19,12 +23,12 @@ export const addService = asyncHandler(async (req, res) => {
 
   const service = await prisma.service.create({
     data: {
-      name: name.trim(),
+      name: safeName,
       price: Math.round(priceNum),
-      duration: (duration || "").trim() || "1 hr",
+      duration: safeDuration || "1 hr",
       // Optional; default to "" so the public catalog never renders undefined.
-      description: (description || "").trim(),
-      icon: (icon || "").trim(),
+      description: safeDescription,
+      icon: safeIcon,
     },
   });
   res.status(201).json({ service: serializeService(service) });

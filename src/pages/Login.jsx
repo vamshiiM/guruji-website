@@ -31,8 +31,11 @@ function LoginPage() {
       }
       navigate(result.role === "admin" ? "/admin" : "/profile");
     } catch (err) {
-      if (err?.code === "BAD_ADMIN") toast.error("Invalid admin credentials");
+      if (err?.code === "BAD_CREDENTIALS") toast.error("Invalid email or password");
       else if (err?.code === "RESERVED_EMAIL") toast.error("This email is reserved");
+      else if (err?.code === "EMAIL_TAKEN") toast.error("An account with this email already exists");
+      else if (err?.code === "RATE_LIMITED") toast.error("Too many attempts — please try again later");
+      else if (err?.code === "VALIDATION") toast.error(err.message || "Please check your details");
       else toast.error("Something went wrong");
     } finally {
       setLoading(false);

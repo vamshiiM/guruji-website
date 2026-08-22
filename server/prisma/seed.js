@@ -42,7 +42,13 @@ const SAMPLE_BOOKINGS = [
 
 async function main() {
   const adminEmail = (process.env.ADMIN_EMAIL || "guruji@divya.com").trim().toLowerCase();
-  const adminPassword = process.env.ADMIN_PASSWORD || "guruji108";
+  // No fallback: refuse to seed a guessable admin. Set a strong ADMIN_PASSWORD.
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminPassword || adminPassword.length < 10) {
+    throw new Error(
+      "ADMIN_PASSWORD must be set to a strong value (10+ chars) before seeding."
+    );
+  }
 
   // 1. Bootstrap admin — idempotent upsert so re-seeding is safe.
   await prisma.user.upsert({
