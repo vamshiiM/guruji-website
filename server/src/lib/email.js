@@ -70,6 +70,48 @@ export function sendUserBookingConfirmation(b) {
   return send({ to: b.email, replyTo: env.notifyEmail, subject: `Booking received — ${b.service}`, html });
 }
 
+// Sent to the devotee when the admin confirms or cancels their booking.
+// Called only on a real Confirmed/Cancelled transition (see updateBooking).
+export function sendBookingStatusUpdate(b) {
+  if (!b.email) return;
+
+  const details = `
+    <div style="background:#faf7f0;border:1px solid #eadfc5;border-radius:8px;padding:16px 18px;margin:0 0 16px">
+      ${row("Service", b.service)}
+      ${row("Date", b.date)}
+      ${row("Time", b.time)}
+      ${row("Address", b.address)}
+    </div>`;
+
+  let subject;
+  let intro;
+  let outro;
+  if (b.status === "Confirmed") {
+    subject = `Your booking is confirmed — ${b.service}`;
+    intro = `Wonderful news — your booking with <strong>Divya Seva</strong> is <strong>confirmed</strong>. Pandit&nbsp;Ji looks forward to performing your ceremony.`;
+    outro = `If you need to change anything, just reply to this email and we'll help.`;
+  } else if (b.status === "Cancelled") {
+    subject = `Your booking has been cancelled — ${b.service}`;
+    intro = `Your booking with <strong>Divya Seva</strong> has been <strong>cancelled</strong>.`;
+    outro = `If this is unexpected or you'd like to rebook, just reply to this email and we'll be glad to help.`;
+  } else {
+    // Defensive: only Confirmed/Cancelled are user-facing events.
+    return;
+  }
+
+  const html = `
+    <div style="font-family:Arial,Helvetica,sans-serif;color:#2a2a2a;max-width:540px;margin:0 auto">
+      <h2 style="color:#b8860b;margin:0 0 8px">${b.status === "Confirmed" ? "Booking confirmed 🙏" : "Booking cancelled"}</h2>
+      <p style="margin:0 0 12px">Namaste ${b.name || "there"},</p>
+      <p style="margin:0 0 16px;line-height:1.6">${intro}</p>
+      ${details}
+      <p style="margin:0 0 16px;line-height:1.6">${outro}</p>
+      <p style="margin:20px 0 0;color:#7a6a4f">With devotion,<br/>Divya Seva</p>
+    </div>
+  `;
+  return send({ to: b.email, replyTo: env.notifyEmail, subject, html });
+}
+
 export function sendContactNotification(m) {
   const html = `
     <h2>New enquiry</h2>
