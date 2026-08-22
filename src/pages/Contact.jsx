@@ -37,9 +37,9 @@ function Contact() {
       <div className="mt-16 grid md:grid-cols-2 gap-12">
         <Reveal>
           <div className="space-y-6">
-            <ContactItem icon={Phone} label={t("contact.phone")} value="+91 98765 43210" />
-            <ContactItem icon={Mail} label={t("contact.email")} value="hello@divyaseva.in" />
-            <ContactItem icon={MapPin} label={t("contact.based")} value="Varanasi, India" />
+            <ContactItem icon={Phone} label={t("contact.phone")} value="+91 7498293339" />
+            <ContactItem icon={Mail} label={t("contact.email")} value="contact@Shivarpanastro.gmail.com" />
+            <ContactItem icon={MapPin} label={t("contact.based")} value="Worli_koliwada,Mumbai,India" />
             <div className="gold-divider !my-8" />
             <p className="text-sm text-muted-foreground leading-relaxed">{t("contact.note")}</p>
           </div>

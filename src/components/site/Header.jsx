@@ -89,7 +89,7 @@ export function Header() {
           <ThemeSwitcher />
           <LanguageSwitcher />
           <motion.a
-            href="https://wa.me/919999999999?text=Namaste%20Guruji%2C%20I%20would%20like%20to%20book%20a%20ceremony."
+            href="https://wa.me/917498293339?text=Namaste%20Guruji%2C%20I%20would%20like%20to%20book%20a%20ceremony."
             target="_blank"
             rel="noopener noreferrer"
             whileHover={{ scale: 1.1 }}
