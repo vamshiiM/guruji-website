@@ -32,6 +32,8 @@ export const api = {
   signup: (name, email, password) =>
     request("/api/auth/signup", { method: "POST", body: { name, email, password } }),
   logout: () => request("/api/auth/logout", { method: "POST" }),
+  changePassword: (currentPassword, newPassword) =>
+    request("/api/auth/change-password", { method: "POST", body: { currentPassword, newPassword } }),
 
   // bookings
   listBookings: () => request("/api/bookings"),

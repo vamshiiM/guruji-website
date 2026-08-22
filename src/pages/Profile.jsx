@@ -1,6 +1,6 @@
 import { useNavigate, Link } from "react-router-dom";
 import { Reveal } from "@/components/site/Reveal";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
@@ -16,6 +16,9 @@ import {
   ArrowRight,
   Flame,
   LayoutDashboard,
+  KeyRound,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 
@@ -94,6 +97,9 @@ function Profile() {
         <StatCard icon={<CalendarDays size={18} />} label="Upcoming" value={upcoming.length} delay={0.12} />
         <StatCard icon={<UserIcon size={18} />} label="Member since" value={formatJoin(user.joinedAt)} delay={0.2} />
       </div>
+
+      {/* Change password */}
+      <ChangePasswordCard />
 
       {/* Booking history */}
       <Reveal delay={0.15}>
@@ -196,6 +202,86 @@ function BookingRow({ b, i }) {
         <p className="mt-2 text-[11px] text-muted-foreground">Booked {formatDate(b.createdAt)}</p>
       </div>
     </motion.li>
+  );
+}
+
+function ChangePasswordCard() {
+  const { changePassword } = useAuth();
+  const [form, setForm] = useState({ current: "", next: "", confirm: "" });
+  const [show, setShow] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (form.next.length < 6) return toast.error("New password must be at least 6 characters");
+    if (form.next !== form.confirm) return toast.error("New passwords do not match");
+    if (form.next === form.current) return toast.error("New password must be different from the current one");
+    setSaving(true);
+    try {
+      await changePassword(form.current, form.next);
+      toast.success("Password updated 🙏");
+      setForm({ current: "", next: "", confirm: "" });
+    } catch (err) {
+      if (err?.code === "BAD_CURRENT_PASSWORD") toast.error("Current password is incorrect");
+      else if (err?.code === "SAME_PASSWORD") toast.error("New password must be different from the current one");
+      else if (err?.code === "RATE_LIMITED") toast.error("Too many attempts — please try again later");
+      else if (err?.code === "VALIDATION") toast.error(err.message || "Please check your input");
+      else toast.error("Could not update password");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inputCls =
+    "mt-2 w-full bg-background/60 border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--saffron)] focus:border-transparent transition";
+  const type = show ? "text" : "password";
+
+  return (
+    <Reveal delay={0.1}>
+      <div className="mt-8 glass-card p-7 md:p-8">
+        <div className="flex items-center gap-3">
+          <span
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-white"
+            style={{ background: "linear-gradient(135deg, var(--saffron), var(--gold))" }}
+          >
+            <KeyRound size={18} />
+          </span>
+          <div>
+            <h2 className="font-display text-2xl">Change password</h2>
+            <p className="text-sm text-muted-foreground">Update the password for your account.</p>
+          </div>
+        </div>
+        <form onSubmit={submit} className="mt-6 grid sm:grid-cols-3 gap-4">
+          <div>
+            <label className="text-xs uppercase tracking-widest text-muted-foreground">Current password</label>
+            <input type={type} required autoComplete="current-password" value={form.current}
+              onChange={(e) => setForm((f) => ({ ...f, current: e.target.value }))} className={inputCls} />
+          </div>
+          <div>
+            <label className="text-xs uppercase tracking-widest text-muted-foreground">New password</label>
+            <input type={type} required minLength={6} autoComplete="new-password" value={form.next}
+              onChange={(e) => setForm((f) => ({ ...f, next: e.target.value }))} className={inputCls} />
+          </div>
+          <div>
+            <label className="text-xs uppercase tracking-widest text-muted-foreground">Confirm new</label>
+            <input type={type} required minLength={6} autoComplete="new-password" value={form.confirm}
+              onChange={(e) => setForm((f) => ({ ...f, confirm: e.target.value }))} className={inputCls} />
+          </div>
+          <div className="sm:col-span-3 flex items-center justify-between flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => setShow((v) => !v)}
+              className="text-xs text-muted-foreground inline-flex items-center gap-1.5 hover:text-foreground transition-colors"
+            >
+              {show ? <EyeOff size={14} /> : <Eye size={14} />} {show ? "Hide" : "Show"} passwords
+            </button>
+            <button type="submit" disabled={saving} className="btn-primary text-sm !py-2.5 !px-5 disabled:opacity-60">
+              {saving ? "Saving…" : "Update password"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </Reveal>
   );
 }
 

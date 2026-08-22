@@ -72,6 +72,43 @@ export const logout = asyncHandler(async (_req, res) => {
   res.json({ ok: true });
 });
 
+// Authenticated: change your own password. Works for any role (user or admin).
+// Requires the current password so a hijacked-but-idle cookie can't silently
+// lock the owner out.
+export const changePassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body || {};
+  if (!currentPassword || !newPassword) {
+    throw new AppError("VALIDATION", "Current and new password are required.", 400);
+  }
+  if (newPassword.length < 6) {
+    throw new AppError("VALIDATION", "New password must be at least 6 characters.", 400);
+  }
+  if (newPassword.length > 200) {
+    throw new AppError("VALIDATION", "New password is too long (max 200 characters).", 400);
+  }
+
+  // req.user has no passwordHash — load the full record to verify.
+  const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+  if (!user) throw new AppError("UNAUTHENTICATED", "Sign in required.", 401);
+
+  const ok = await verifyPassword(currentPassword, user.passwordHash);
+  if (!ok) {
+    throw new AppError("BAD_CURRENT_PASSWORD", "Current password is incorrect.", 400);
+  }
+  if (await verifyPassword(newPassword, user.passwordHash)) {
+    throw new AppError("SAME_PASSWORD", "New password must be different from the current one.", 400);
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash: await hashPassword(newPassword) },
+  });
+
+  // Re-issue this session's cookie so the current device stays signed in.
+  issueCookie(res, user);
+  res.json({ ok: true });
+});
+
 // Public: returns the current user if a valid cookie is present, else { user: null }.
 export const me = asyncHandler(async (req, res) => {
   const token = req.cookies?.[COOKIE_NAME];
