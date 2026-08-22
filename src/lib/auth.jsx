@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 
 const Ctx = createContext(null);
@@ -36,27 +36,30 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  const refreshBookings = async () => {
+  // Methods are wrapped in useCallback so their identity is stable; the context
+  // value below is memoized so consumers only re-render when the actual data
+  // (user/bookings/services/loading) changes — not on every provider render.
+  const refreshBookings = useCallback(async () => {
     const { bookings } = await api.listBookings().catch(() => ({ bookings: [] }));
     setBookings(bookings ?? []);
-  };
+  }, []);
 
   // Auth ---------------------------------------------------------------------
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     const { user } = await api.login(email, password);
     setUser(user);
     await refreshBookings();
     return { role: user.role };
-  };
+  }, [refreshBookings]);
 
-  const signup = async (name, email, password) => {
+  const signup = useCallback(async (name, email, password) => {
     const { user } = await api.signup(name, email, password);
     setUser(user);
     await refreshBookings();
     return { role: user.role };
-  };
+  }, [refreshBookings]);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await api.logout();
     } catch {
@@ -64,64 +67,77 @@ export function AuthProvider({ children }) {
     }
     setUser(null);
     setBookings([]);
-  };
+  }, []);
 
   // Bookings -----------------------------------------------------------------
-  const addBooking = async (booking) => {
+  const addBooking = useCallback(async (booking) => {
     const { booking: created } = await api.createBooking(booking);
     setBookings((prev) => [created, ...prev]);
     return created;
-  };
+  }, []);
 
-  const updateBooking = async (id, status) => {
+  const updateBooking = useCallback(async (id, status) => {
     const { booking: updated } = await api.updateBooking(id, status);
     setBookings((prev) => prev.map((b) => (b.id === id ? updated : b)));
     return updated;
-  };
+  }, []);
 
-  const deleteBooking = async (id) => {
+  const deleteBooking = useCallback(async (id) => {
     await api.deleteBooking(id);
     setBookings((prev) => prev.filter((b) => b.id !== id));
-  };
+  }, []);
 
   // Services -----------------------------------------------------------------
-  const addService = async ({ name, price, duration, description, icon }) => {
+  const addService = useCallback(async ({ name, price, duration, description, icon }) => {
     const { service } = await api.addService({ name, price, duration, description, icon });
     setServices((prev) => [...prev, service]);
     return service;
-  };
+  }, []);
 
-  const removeService = async (id) => {
+  const removeService = useCallback(async (id) => {
     await api.removeService(id);
     setServices((prev) => prev.filter((s) => s.id !== id));
-  };
+  }, []);
 
   const isAdmin = user?.role === "admin";
 
-  return (
-    <Ctx.Provider
-      value={{
-        user,
-        isAdmin,
-        loading,
-        login,
-        signup,
-        logout,
-        // Server already scopes bookings by role, so `bookings` and `allBookings`
-        // are the same array (admin: all; user: own).
-        bookings,
-        allBookings: bookings,
-        addBooking,
-        updateBooking,
-        deleteBooking,
-        services,
-        addService,
-        removeService,
-      }}
-    >
-      {children}
-    </Ctx.Provider>
+  const value = useMemo(
+    () => ({
+      user,
+      isAdmin,
+      loading,
+      login,
+      signup,
+      logout,
+      // Server already scopes bookings by role, so `bookings` and `allBookings`
+      // are the same array (admin: all; user: own).
+      bookings,
+      allBookings: bookings,
+      addBooking,
+      updateBooking,
+      deleteBooking,
+      services,
+      addService,
+      removeService,
+    }),
+    [
+      user,
+      isAdmin,
+      loading,
+      login,
+      signup,
+      logout,
+      bookings,
+      addBooking,
+      updateBooking,
+      deleteBooking,
+      services,
+      addService,
+      removeService,
+    ]
   );
+
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
 export const useAuth = () => {

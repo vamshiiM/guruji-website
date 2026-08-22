@@ -114,9 +114,15 @@ function AdminPage() {
     };
   }, [loading, isAdmin]);
 
+  // Service name → price, built once per services change, so booking amounts are
+  // O(1) lookups instead of an O(services) .find() per booking row / per stat.
+  const priceMap = useMemo(
+    () => new Map(services.map((s) => [s.name, s.price])),
+    [services]
+  );
   const stats = useMemo(
-    () => computeStats(allBookings, services),
-    [allBookings, services]
+    () => computeStats(allBookings, priceMap),
+    [allBookings, priceMap]
   );
   const filtered = useMemo(
     () =>
@@ -183,18 +189,19 @@ function AdminPage() {
           minWidth: 0,
         }}
       >
-        <TopBar tab={tab} />
-        {tab === "overview" && <Overview stats={stats} bookings={allBookings} />}
+        <TopBar tab={tab} isMobile={isMobile} />
+        {tab === "overview" && <Overview stats={stats} bookings={allBookings} isMobile={isMobile} />}
         {tab === "bookings" && (
           <Bookings
             bookings={filtered}
             total={allBookings.length}
-            services={services}
+            priceMap={priceMap}
             stats={stats}
             query={query}
             setQuery={setQuery}
             updateStatus={updateStatus}
             removeBooking={removeBooking}
+            isMobile={isMobile}
           />
         )}
         {tab === "users" && <UsersList users={users} />}
@@ -204,6 +211,7 @@ function AdminPage() {
             services={services}
             onAdd={addService}
             onRemove={removeService}
+            isMobile={isMobile}
           />
         )}
       </main>
@@ -212,26 +220,21 @@ function AdminPage() {
 }
 
 // Amount (₹) for a booking = current price of its service; 0 if the service no
-// longer exists (bookings store the service as a free-text name).
-function serviceAmount(services, name) {
-  return services.find((s) => s.name === name)?.price ?? 0;
-}
-
-function computeStats(bookings, services) {
+// longer exists (bookings store the service as a free-text name). `priceMap` is
+// a Map(serviceName → price) so each lookup is O(1).
+function computeStats(bookings, priceMap) {
   const total = bookings.length;
   const confirmed = bookings.filter((b) => b.status === "Confirmed").length;
   const pending = bookings.filter((b) => b.status?.includes("Pending")).length;
   const cancelled = bookings.filter((b) => b.status === "Cancelled").length;
   const users = new Set(bookings.map((b) => b.email).filter(Boolean)).size;
+  const amt = (b) => priceMap.get(b.service) ?? 0;
   // Revenue = confirmed bookings only. Bookings cost = every booking regardless
   // of status (pending + confirmed + cancelled). Both recompute live via useMemo.
   const revenue = bookings
     .filter((b) => b.status === "Confirmed")
-    .reduce((sum, b) => sum + serviceAmount(services, b.service), 0);
-  const bookingsCost = bookings.reduce(
-    (sum, b) => sum + serviceAmount(services, b.service),
-    0
-  );
+    .reduce((sum, b) => sum + amt(b), 0);
+  const bookingsCost = bookings.reduce((sum, b) => sum + amt(b), 0);
   return { total, confirmed, pending, cancelled, users, revenue, bookingsCost };
 }
 
@@ -685,9 +688,8 @@ function MobileTopNav({ tab, setTab, logout, user, open, setOpen }) {
 }
 
 /* ---------------- Top bar ---------------- */
-function TopBar({ tab }) {
+function TopBar({ tab, isMobile }) {
   const { t, i18n } = useTranslation();
-  const isMobile = useIsMobile();
   const titles = {
     overview: t("admin.nav.overview"),
     bookings: t("admin.nav.bookings"),
@@ -726,9 +728,8 @@ function TopBar({ tab }) {
 
 
 /* ---------------- Overview ---------------- */
-function Overview({ stats, bookings }) {
+function Overview({ stats, bookings, isMobile }) {
   const { t } = useTranslation();
-  const isMobile = useIsMobile();
   const recent = bookings.slice(0, 6);
   return (
     <div>
@@ -846,9 +847,8 @@ function SummaryCard({ label, value, caption, accent }) {
 }
 
 /* ---------------- Bookings ---------------- */
-function Bookings({ bookings, total, services, stats, query, setQuery, updateStatus, removeBooking }) {
+function Bookings({ bookings, total, priceMap, stats, query, setQuery, updateStatus, removeBooking, isMobile }) {
   const { t } = useTranslation();
-  const isMobile = useIsMobile();
   const money = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
   const headers = [
     t("admin.bookings.cols.devotee"),
@@ -952,7 +952,9 @@ function Bookings({ bookings, total, services, stats, query, setQuery, updateSta
               </tr>
             </thead>
             <tbody>
-              {bookings.map((b) => (
+              {bookings.map((b) => {
+                const amount = priceMap.get(b.service) ?? 0;
+                return (
                 <tr key={b.id} style={{ borderBottom: `1px solid ${T.lineSoft}` }}>
                   <td style={tdStyle}>
                     <div style={{ fontWeight: 500 }}>{b.name || "—"}</div>
@@ -961,9 +963,7 @@ function Bookings({ bookings, total, services, stats, query, setQuery, updateSta
                   <td style={{ ...tdStyle, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{b.phone || "—"}</td>
                   <td style={tdStyle}>{b.service || "—"}</td>
                   <td style={{ ...tdStyle, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: 500 }}>
-                    {serviceAmount(services, b.service)
-                      ? `₹${serviceAmount(services, b.service).toLocaleString("en-IN")}`
-                      : "—"}
+                    {amount ? `₹${amount.toLocaleString("en-IN")}` : "—"}
                   </td>
                   <td style={tdStyle}>
                     {b.date || new Date(b.createdAt).toLocaleDateString()}
@@ -983,7 +983,8 @@ function Bookings({ bookings, total, services, stats, query, setQuery, updateSta
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -1120,9 +1121,8 @@ function MessagesList({ messages }) {
 }
 
 /* ---------------- Services ---------------- */
-function ServicesList({ services, onAdd, onRemove }) {
+function ServicesList({ services, onAdd, onRemove, isMobile }) {
   const { t } = useTranslation();
-  const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", price: "", duration: "", description: "", icon: "" });
   const [err, setErr] = useState("");
