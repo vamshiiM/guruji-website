@@ -1,7 +1,7 @@
 import { prisma } from "../db.js";
 import { AppError, asyncHandler } from "../lib/errors.js";
 import { serializeBooking } from "../lib/serializers.js";
-import { sendBookingNotification } from "../lib/email.js";
+import { sendBookingNotification, sendUserBookingConfirmation } from "../lib/email.js";
 
 const STATUSES = ["Confirmed", "Pending confirmation", "Cancelled"];
 
@@ -70,7 +70,9 @@ export const createBooking = asyncHandler(async (req, res) => {
   });
 
   res.status(201).json({ booking: serializeBooking(booking) });
-  sendBookingNotification(booking); // fire-and-forget; never blocks the response
+  // Fire-and-forget after responding: alert the admin, and confirm to the devotee.
+  sendBookingNotification(booking); // -> NOTIFY_EMAIL
+  sendUserBookingConfirmation(booking); // -> the devotee's own email
 });
 
 export const updateBooking = asyncHandler(async (req, res) => {
